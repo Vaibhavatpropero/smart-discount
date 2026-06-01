@@ -1,0 +1,441 @@
+// ============================================================
+// Smart Discount — Prisma Schema
+// DB: AWS RDS MySQL 8.x
+// ORM: Prisma ORM
+// Last Updated: 2026-05-27
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum PlanName {
+  FREE    // 14-day trial, capped Advanced features
+  BASIC   // Paid — core discount features
+  ADVANCE // Paid — full feature access
+}
+
+enum PlanStatus {
+  TRIALING   // Within 14-day free trial window
+  ACTIVE     // Paid and active
+  CANCELLED  // Merchant cancelled
+  EXPIRED    // Trial ended, no plan chosen
+  PAUSED     // Payment failed / grace period
+}
+
+enum DiscountType {
+  // Native API (MVP)
+  ORDER_PERCENTAGE        // % off entire order
+  ORDER_FIXED             // Fixed $ off entire order
+  PRODUCT_PERCENTAGE      // % off specific products/collections
+  PRODUCT_FIXED           // Fixed $ off specific products/collections
+  BXGY                    // Buy X Get Y (BOGO, cross-product, spend-X)
+  FREE_SHIPPING           // Remove shipping cost
+
+  // Advanced / Functions (Phase 2 — reserved, not yet built)
+  APP_VOLUME              // Volume / tiered pricing (Shopify Function)
+  APP_BUNDLE              // Bundle discount (Shopify Function)
+  APP_CAPPED              // Capped % discount (Shopify Function)
+}
+
+enum DiscountMethod {
+  CODE       // Customer enters a code at checkout
+  AUTOMATIC  // Applied automatically, no code needed
+}
+
+enum DiscountStatus {
+  DRAFT      // Created in app, not yet pushed to Shopify
+  ACTIVE     // Live on Shopify
+  SCHEDULED  // Created but startsAt is in the future
+  EXPIRED    // Past endsAt
+  DISABLED   // Manually deactivated by merchant
+  FAILED     // Shopify API push failed — see lastError field
+}
+
+enum MinimumRequirementType {
+  NONE
+  SUBTOTAL   // Minimum spend (e.g. order >= $50)
+  QUANTITY   // Minimum item count
+}
+
+enum BxgyCustomerBuysValueType {
+  QUANTITY  // Buy N items
+  AMOUNT    // Spend $X
+}
+
+enum BxgyGetsEffect {
+  PERCENTAGE    // e.g. 50% off the Y items
+  FREE          // 100% off — effectively free
+}
+
+enum DiscountEventType {
+  CREATED
+  UPDATED
+  ACTIVATED
+  DEACTIVATED
+  EXPIRED
+  DELETED
+  PUSH_FAILED
+  PLAN_RESTRICTED   // Action blocked due to plan limits
+}
+
+enum BillingEventType {
+  TRIAL_STARTED
+  TRIAL_EXTENDED   // Admin manually extended trial
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_UPDATED
+  SUBSCRIPTION_CANCELLED
+  SUBSCRIPTION_EXPIRED
+  PAYMENT_FAILED
+  REFUND_ISSUED
+}
+
+// ─────────────────────────────────────────────────────────────
+// SESSION
+// ─────────────────────────────────────────────────────────────
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String    @db.Text
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?   @db.Text
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHOP
+// One record per installed store. Primary anchor — all other
+// records cascade-delete when a Shop is deleted.
+// ─────────────────────────────────────────────────────────────
+
+model Shop {
+  id         String @id @default(cuid())
+
+  // myshopify domain — unique, immutable identifier for a store
+  shopDomain String @unique   // e.g. "cool-store.myshopify.com"
+
+  // Store identity (populated via Shopify Admin API on install)
+  name        String?         // Store display name
+  ownerName   String?         // Shop owner full name
+  ownerEmail  String?         // Shop owner email
+  ownerPhone  String?         // Shop owner phone (E.164 format preferred)
+  currency    String? @default("USD")  // Store primary currency ISO code
+  timezone    String?          // e.g. "Asia/Kolkata"
+  countryCode String?          // ISO 3166-1 alpha-2, e.g. "IN"
+
+  // Plan
+  planName   PlanName   @default(FREE)
+  planStatus PlanStatus @default(TRIALING)
+
+  // Trial window
+  // trialEndsAt = installedAt + 14 days, set in afterAuth hook.
+  // App admin can extend by updating this field directly.
+  trialEndsAt DateTime?
+
+  // Shopify Billing API
+  // Populated after merchant approves subscription on billing confirmation page.
+  billingId          String?   // Shopify AppSubscription GID
+  billingConfirmedAt DateTime?
+
+  // Lifecycle
+  uninstalledAt DateTime?   // null = currently installed
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())  // also acts as installedAt
+
+  // Relations
+  subscription   Subscription?
+  discounts      Discount[]
+  billingEvents  BillingEvent[]
+  discountEvents DiscountEvent[]
+
+  @@index([planName, planStatus])
+  @@index([trialEndsAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBSCRIPTION
+// One-to-one with Shop. Full subscription lifecycle record
+// including trial extension history.
+// ─────────────────────────────────────────────────────────────
+
+model Subscription {
+  id     String @id @default(cuid())
+  shopId String @unique
+
+  // Current plan snapshot
+  planName   PlanName
+  planStatus PlanStatus
+
+  // Shopify Billing API
+  shopifySubscriptionId  String?         // GID from Shopify AppSubscription object
+  shopifyConfirmationUrl String? @db.Text // Redirect merchant here to approve billing
+
+  // Pricing
+  price         Decimal? @db.Decimal(10, 2)
+  currency      String?  @default("USD")
+  billingPeriod String?  @default("EVERY_30_DAYS")  // Shopify billing interval string
+
+  // Trial
+  trialStartedAt  DateTime  @default(now())
+  trialEndsAt     DateTime?
+  // Counter incremented each time an app admin extends the trial.
+  trialExtensions Int       @default(0)
+  lastExtendedAt  DateTime?
+  lastExtendedBy  String?   // Future: internal admin user ID
+
+  // Key lifecycle timestamps
+  activatedAt DateTime?
+  cancelledAt DateTime?
+  expiresAt   DateTime?
+  lastSyncedAt DateTime?  // Last time we verified status with Shopify Billing API
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([planStatus])
+  @@index([trialEndsAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BILLING EVENT LOG
+// Immutable append-only audit trail of every plan/billing change.
+// NEVER update or delete rows — only INSERT.
+// ─────────────────────────────────────────────────────────────
+
+model BillingEvent {
+  id          String           @id @default(cuid())
+  shopId      String
+  eventType   BillingEventType
+  planName    PlanName?        // Plan at time of event
+  description String?
+  metadata    Json?            // Shopify webhook payload or admin context
+  createdAt   DateTime @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// DISCOUNT
+// Central business table. One row = one discount campaign.
+//
+// Design notes:
+//  - discountType + method together determine which Shopify mutation is used.
+//  - Shopify GIDs stored for update/delete sync.
+//  - Product/collection targets stored as JSON arrays of GIDs (no join table
+//    needed for MVP — Shopify is the source of truth for product metadata).
+//  - BXGY-specific config in a separate 1:1 BxgyConfig table.
+//  - Free shipping-specific fields inline (minimal).
+//  - Customer segment targeting is ADVANCE plan only — stored but gated.
+// ─────────────────────────────────────────────────────────────
+
+model Discount {
+  id     String @id @default(cuid())
+  shopId String
+
+  // ── Identity ──────────────────────────────────────────────
+  title        String          // Internal name shown in app UI
+  description  String? @db.Text // Optional merchant notes
+  discountType DiscountType
+  method       DiscountMethod
+
+  // ── Shopify API sync ──────────────────────────────────────
+  // Populated after successful push to Shopify.
+  shopifyDiscountId   String? @unique  // Shopify GID
+  shopifyDiscountCode String?          // Actual code string (method=CODE only)
+  status              DiscountStatus @default(DRAFT)
+  lastSyncedAt        DateTime?
+  // Stores the raw Shopify API error on FAILED status
+  lastError           String? @db.Text
+
+  // ── Discount value ────────────────────────────────────────
+  // Not used for BXGY (see BxgyConfig) or FREE_SHIPPING.
+  discountValue Decimal? @db.Decimal(10, 2)
+  isPercentage  Boolean? @default(true)
+
+  // ── Target scope ──────────────────────────────────────────
+  // appliesToAll=true → whole order / all products
+  // appliesToAll=false → use targetProducts + targetCollections
+  appliesToAll      Boolean @default(true)
+  targetProducts    Json?   // Array of Shopify Product GIDs
+  targetCollections Json?   // Array of Shopify Collection GIDs
+
+  // ── Minimum requirement ───────────────────────────────────
+  minimumType     MinimumRequirementType @default(NONE)
+  minimumSubtotal Decimal? @db.Decimal(10, 2)  // type=SUBTOTAL
+  minimumQuantity Int?                          // type=QUANTITY
+
+  // ── Usage limits ──────────────────────────────────────────
+  usageLimit             Int?     // Max total redemptions (null = unlimited)
+  usesPerOrderLimit      Int?     // Max uses per single order (mainly BXGY)
+  appliesOncePerCustomer Boolean  @default(false)
+
+  // ── Combinability ─────────────────────────────────────────
+  combineWithOrderDiscounts    Boolean @default(false)
+  combineWithProductDiscounts  Boolean @default(false)
+  combineWithShippingDiscounts Boolean @default(false)
+
+  // ── Scheduling ────────────────────────────────────────────
+  startsAt DateTime  @default(now())
+  endsAt   DateTime?
+
+  // ── Free shipping fields (discountType=FREE_SHIPPING only) ─
+  // null = all countries. Non-null = JSON array of ISO-3166-1 alpha-2 codes
+  // e.g. ["IN", "US", "GB"]
+  shippingDestinationCountries Json?
+  // Shopify maximumShippingPrice — cap which rates are made free
+  // e.g. 5.00 means only shipping rates <= $5 become free
+  maximumShippingPrice         Decimal? @db.Decimal(10, 2)
+
+  // ── Customer targeting (ADVANCE plan only) ────────────────
+  // JSON array of Shopify CustomerSegment GIDs.
+  // null = all customers (FREE/BASIC behaviour).
+  customerSegments Json?
+
+  // ── Template origin ───────────────────────────────────────
+  templateId   String?
+  templateSlug String?   // Human-readable slug for event logs / analytics
+
+  // ── Analytics (lightweight, updated async) ────────────────
+  // Full analytics module will extend these later.
+  totalUsageCount Int     @default(0)
+  totalSavings    Decimal @default(0) @db.Decimal(12, 2)
+
+  // ── Plan audit ────────────────────────────────────────────
+  // Records which plan tier was active when this discount was created.
+  // Enables graceful degradation if merchant downgrades plan.
+  createdOnPlan PlanName @default(FREE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  shop       Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  bxgyConfig BxgyConfig?
+  events     DiscountEvent[]
+
+  @@index([shopId, status])
+  @@index([shopId, discountType])
+  @@index([shopifyDiscountId])
+  @@index([startsAt, endsAt])
+  @@index([templateSlug])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BXGY CONFIG
+// One-to-one extension of Discount for Buy X Get Y type only.
+// Separated to keep the main Discount table clean — BXGY has
+// unique fields that are meaningless for other discount types.
+// ─────────────────────────────────────────────────────────────
+
+model BxgyConfig {
+  id         String @id @default(cuid())
+  discountId String @unique
+
+  // ── Customer BUYS ─────────────────────────────────────────
+  customerBuysType   BxgyCustomerBuysValueType @default(QUANTITY)
+  customerBuysQty    Int?     // Used when type=QUANTITY (e.g. buy 2)
+  customerBuysAmount Decimal? @db.Decimal(10, 2)  // Used when type=AMOUNT (spend $X)
+
+  // What they must buy — null = any products
+  customerBuysProducts    Json?   // Array of Shopify Product GIDs
+  customerBuysCollections Json?   // Array of Shopify Collection GIDs
+
+  // ── Customer GETS ─────────────────────────────────────────
+  customerGetsQty        Int            @default(1)
+  customerGetsEffect     BxgyGetsEffect @default(FREE)
+  // Used when effect=PERCENTAGE (e.g. 50.00 for 50% off)
+  customerGetsPercentage Decimal?       @db.Decimal(5, 2)
+
+  // What they get — null = same products as they bought (BOGO same-product)
+  customerGetsProducts    Json?
+  customerGetsCollections Json?
+
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────
+// DISCOUNT EVENT LOG
+// Append-only audit trail per discount.
+// Log every state change, API call attempt, plan restriction.
+// ─────────────────────────────────────────────────────────────
+
+model DiscountEvent {
+  id          String            @id @default(cuid())
+  discountId  String
+  shopId      String
+  eventType   DiscountEventType
+  description String?
+  metadata    Json?   // Shopify API response, error payload, or field diff snapshot
+  createdAt   DateTime @default(now())
+
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  shop     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([discountId, createdAt])
+  @@index([shopId, eventType])
+}
+
+// ─────────────────────────────────────────────────────────────
+// DISCOUNT TEMPLATE
+// Pre-built templates that merchants can use to create a discount
+// with minimum input. Managed by app admin (global, not per-store).
+// ─────────────────────────────────────────────────────────────
+
+model DiscountTemplate {
+  id   String @id @default(cuid())
+  slug String @unique   // e.g. "bogo-same-product", "flash-sale-20-percent"
+
+  name        String
+  description String? @db.Text
+
+  discountType DiscountType
+  method       DiscountMethod
+
+  // JSON object whose keys match Discount model fields.
+  // Pre-fills the creation form when merchant picks this template.
+  // e.g. { "isPercentage": true, "discountValue": 20, "appliesToAll": true }
+  defaultConfig Json
+
+  // Minimum plan required to access this template
+  requiredPlan PlanName @default(FREE)
+
+  // UI metadata
+  category  String?   // "BXGY" | "Seasonal" | "Flash Sale" | "Shipping" | etc.
+  iconName  String?   // Lucide icon name string for template card
+  isPopular Boolean @default(false)  // Featured / highlighted in UI
+  sortOrder Int     @default(0)      // Display order within category
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requiredPlan, isActive])
+  @@index([category])
+}
