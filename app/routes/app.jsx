@@ -1,10 +1,23 @@
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
+import { upsertShopOnInstall } from "../utils/shop.server.js";
 import { authenticate } from "../shopify.server";
+import { logger } from "../utils/logger.server.js";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
+
+  logger.info("app.layout", "Authenticated admin request", {
+    shop: session.shop,
+  });
+
+  // Upsert shop on first install or re-install.
+  // No-op on every subsequent request (fast path via findUnique).
+  await upsertShopOnInstall({
+    shopDomain: session.shop,
+    admin,
+  });
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
