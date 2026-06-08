@@ -55,7 +55,7 @@ export async function loader({ request }) {
         trialDaysRemaining: getTrialDaysRemaining(shop.trialEndsAt),
         subscription: shop.subscription
             ? {
-                price: shop.subscription.price,
+                price: shop.subscription.price?.toFixed(2) ?? null,
                 currency: shop.subscription.currency,
                 billingPeriod: shop.subscription.billingPeriod,
                 activatedAt: shop.subscription.activatedAt,
@@ -144,6 +144,7 @@ export async function action({ request }) {
 
         await savePendingSubscriptionChange({
             shopId: shop.id,
+            shop,
             targetPlanName: targetPlan,
             shopifySubscriptionId,
             confirmationUrl,
@@ -317,7 +318,7 @@ function BillingInfo({ subscription }) {
         });
 
     const items = [
-        { label: "Current charge", value: `$${Number(subscription.price).toFixed(2)}/mo` },
+        { label: "Current charge", value: `$${subscription.price}/mo` },
         { label: "Billing cycle", value: "Monthly" },
         { label: "Activated", value: fmt(subscription.activatedAt) },
         {
@@ -486,6 +487,13 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
 export default function BillingPage() {
     const { planName, planStatus, trialDaysRemaining, subscription } = useLoaderData();
     const actionData = useActionData();
+
+    useEffect(() => {
+        console.log(`Plan: ${planName}`);
+        console.log(`Status: ${planStatus}`);
+        console.log(`Trial days remaining: ${trialDaysRemaining}`);
+        console.log(`Subscription: ${JSON.stringify(subscription)}`);
+    }, [])
 
     const isTrialing = planStatus === "TRIALING";
     const isExpired = planStatus === "EXPIRED";

@@ -1,6 +1,7 @@
 // app/utils/billing.server.js
 import prisma from "../db.server.js";
 import { PLANS } from "./plans.js";
+import { invalidateAccessCache } from "./access-cache.server.js";
 import { logger } from "./logger.server.js";
 
 export { PLANS };
@@ -104,6 +105,7 @@ export async function createAppSubscription({
  */
 export async function savePendingSubscriptionChange({
     shopId,
+    shop,
     targetPlanName,
     shopifySubscriptionId,
     confirmationUrl,
@@ -134,6 +136,15 @@ export async function savePendingSubscriptionChange({
                 updatedAt: new Date(),
             },
         }),
+
+        prisma.shop.update({
+            where: { id: shopId },
+            data: {
+                billingId: shopifySubscriptionId,
+                billingConfirmedAt: null,
+            },
+        }),
+
         prisma.billingEvent.create({
             data: {
                 shopId,
@@ -149,6 +160,8 @@ export async function savePendingSubscriptionChange({
             },
         }),
     ]);
+
+    invalidateAccessCache(shop);
 
     logger.info("billing.server", "Saved pending subscription change", {
         shopId,

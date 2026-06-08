@@ -1,8 +1,9 @@
 // app/routes/webhooks.jsx
 import { authenticate } from "../shopify.server.js";
 import prisma from "../db.server.js";
-import { logger } from "../utils/logger.server.js";
 import { normalizeShopifySubscriptionStatus } from "../utils/billing.server.js";
+import { invalidateAccessCache } from "../utils/access-cache.server.js";
+import { logger } from "../utils/logger.server.js";
 
 export async function action({ request }) {
     let webhookContext;
@@ -106,7 +107,7 @@ async function handleAppSubscriptionsUpdate({ shop, payload, webhookId }) {
         });
     }
 
-    if (!subscription && shopRecord.subscription) {
+    if (!subscription && !shopifySubscriptionId && shopRecord.subscription) {
         subscription = shopRecord.subscription;
     }
 
@@ -175,29 +176,53 @@ async function handleAppSubscriptionsUpdate({ shop, payload, webhookId }) {
         }),
     ];
 
+    const isCurrentShopSubscription =
+        Boolean(shopifySubscriptionId) &&
+        shopRecord.billingId === shopifySubscriptionId;
+
     if (normalized.shopStatus) {
-        operations.push(
-            prisma.shop.update({
-                where: { id: shopRecord.id },
-                data: {
-                    planName: subscription.planName,
-                    planStatus: normalized.shopStatus,
-                    billingConfirmedAt:
-                        normalized.subscriptionStatus === "ACTIVE"
-                            ? new Date()
-                            : shopRecord.billingConfirmedAt,
-                },
-            })
-        );
+        if (!isCurrentShopSubscription) {
+            logger.info("webhooks", "Skipping shop state update for non-current subscription", {
+                shop,
+                webhookId,
+                incomingShopifySubscriptionId: shopifySubscriptionId,
+                currentShopBillingId: shopRecord.billingId,
+                incomingSubscriptionStatus: normalized.subscriptionStatus,
+                incomingPlanName: subscription.planName,
+            });
+        } else {
+            operations.push(
+                prisma.shop.update({
+                    where: { id: shopRecord.id },
+                    data: {
+                        planName: subscription.planName,
+                        planStatus: normalized.shopStatus,
+                        billingConfirmedAt:
+                            normalized.subscriptionStatus === "ACTIVE"
+                                ? new Date()
+                                : shopRecord.billingConfirmedAt,
+                    },
+                })
+            );
+        }
     }
 
     await prisma.$transaction(operations);
 
+    invalidateAccessCache(shop);
+
     logger.info("webhooks", "Subscription webhook applied successfully", {
         shop,
         webhookId,
-        finalPlanName: normalized.shopStatus ? subscription.planName : shopRecord.planName,
-        finalPlanStatus: normalized.shopStatus ?? shopRecord.planStatus,
+        updatedShopState: isCurrentShopSubscription,
+        finalPlanName:
+            isCurrentShopSubscription && normalized.shopStatus
+                ? subscription.planName
+                : shopRecord.planName,
+        finalPlanStatus:
+            isCurrentShopSubscription && normalized.shopStatus
+                ? normalized.shopStatus
+                : shopRecord.planStatus,
         subscriptionStatus: normalized.subscriptionStatus,
     });
 }
@@ -265,6 +290,8 @@ async function handleAppUninstalled({ shop, session, webhookId }) {
     if (tx.length) {
         await prisma.$transaction(tx);
     }
+
+    invalidateAccessCache(shop);
 
     logger.info("webhooks", "APP_UNINSTALLED processed", {
         shop,
