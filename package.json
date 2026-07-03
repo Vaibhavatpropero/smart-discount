@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
-    "dev": "dotenv -e .env.dev -- shopify app dev --config shopify.app.dev.toml",
+    "dev": "dotenv -e .env.dev -- shopify app dev --tunnel-url=https://cattily-unperpetuable-tomoko.ngrok-free.dev:5173 --config shopify.app.dev.toml",
     "prod": "dotenv -e .env.prod -- shopify app dev --config shopify.app.prod.toml",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",

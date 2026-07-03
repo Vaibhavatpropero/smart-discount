@@ -1,6 +1,6 @@
 // app/routes/app.discounts.jsx
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { data, Link, useLoaderData } from "react-router";
+import { data, Link, Outlet, useLoaderData } from "react-router";
 import prisma from "../db.server";
 import {
     getPlanContext,
@@ -73,7 +73,7 @@ export const loader = async ({ request }) => {
             title: "Order discounts",
             description: "Percentage or fixed discounts for the full cart.",
             examples: [ "% off order", "$ off order", "Code or automatic" ],
-            href: "/app/discounts/new?group=order",
+            href: "/app/discounts-new?group=order",
             locked: false,
             badge: "Core",
         },
@@ -82,7 +82,7 @@ export const loader = async ({ request }) => {
             title: "Product / collection discounts",
             description: "Discount selected products or collections.",
             examples: [ "% off products", "$ off products", "Collection campaigns" ],
-            href: "/app/discounts/new?group=product",
+            href: "/app/discounts-new?group=product",
             locked: false,
             badge: "Core",
         },
@@ -91,7 +91,7 @@ export const loader = async ({ request }) => {
             title: "Buy X get Y",
             description: "Run BOGO and multi-buy promotions.",
             examples: [ "Simple BOGO", "Buy N get M", "Template-based setups" ],
-            href: "/app/discounts/new?group=bxgy",
+            href: "/app/discounts-new?group=bxgy",
             locked: false,
             badge: "Popular",
         },
@@ -100,7 +100,7 @@ export const loader = async ({ request }) => {
             title: "Free shipping",
             description: "Create shipping incentives for checkout conversion.",
             examples: [ "Over subtotal", "Code-based", "Automatic shipping offers" ],
-            href: "/app/discounts/new?group=shipping",
+            href: "/app/discounts-new?group=shipping",
             locked: false,
             badge: "Core",
         },
@@ -109,7 +109,7 @@ export const loader = async ({ request }) => {
             title: "Smart app discounts",
             description: "Bundles, capped discounts, and future Functions-based logic.",
             examples: [ "Bundles", "Volume pricing", "Capped promotions" ],
-            href: "/app/discounts/new?group=app",
+            href: "/app/discounts-new?group=app",
             locked: !access.canUseFunctionsDiscounts,
             badge: "Advance",
         },
@@ -314,7 +314,7 @@ function TemplateCard({ template, access }) {
                     </Link>
                 ) : (
                     <Link
-                        to={`/app/discounts/new?template=${template.slug}`}
+                        to={`/app/discounts-new?template=${template.slug}`}
                         className="text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
                         Use template
