@@ -1,11 +1,29 @@
 // app/components/discount-wizard/useDiscountWizardState.js
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function useDiscountWizardState({ groupConfig, template, groupValue }) {
-    const [ title, setTitle ] = useState(template?.name ? `${template.name} draft` : `${groupConfig.title} draft`);
+    const [ title, setTitle ] = useState(
+        template?.name ? `${template.name} draft` : `${groupConfig.title} draft`
+    );
     const [ description, setDescription ] = useState(template?.description || "");
     const [ method, setMethod ] = useState(groupConfig.method || "AUTOMATIC");
     const [ discountCode, setDiscountCode ] = useState("");
+
+    useEffect(() => {
+        const fallbackMethod = groupConfig.method || "AUTOMATIC";
+
+        if (!groupConfig.supportedMethods?.includes(method)) {
+            setMethod(fallbackMethod);
+        }
+
+        if (
+            groupConfig.supportedMethods &&
+            !groupConfig.supportedMethods.includes("CODE") &&
+            discountCode
+        ) {
+            setDiscountCode("");
+        }
+    }, [ groupConfig, method, discountCode ]);
 
     const [ isPercentage, setIsPercentage ] = useState(true);
     const [ discountValue, setDiscountValue ] = useState("");
@@ -35,10 +53,15 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
     const [ bxgyGetQuantity, setBxgyGetQuantity ] = useState("1");
     const [ bxgyGetEffect, setBxgyGetEffect ] = useState("FREE");
     const [ bxgyGetPercentage, setBxgyGetPercentage ] = useState("");
+    const [ bxgyGetAmount, setBxgyGetAmount ] = useState("");
     const [ bxgyGetTargetType, setBxgyGetTargetType ] = useState("PRODUCTS");
     const [ bxgyGetProducts, setBxgyGetProducts ] = useState([]);
     const [ bxgyGetCollections, setBxgyGetCollections ] = useState([]);
     const [ bxgyUsesPerOrderLimit, setBxgyUsesPerOrderLimit ] = useState("");
+
+    const [ shippingDestinationMode, setShippingDestinationMode ] = useState("ALL");
+    const [ shippingDestinationCountries, setShippingDestinationCountries ] = useState([]);
+    const [ maximumShippingPrice, setMaximumShippingPrice ] = useState("");
 
     const [ startsAt, setStartsAt ] = useState("");
     const [ endsAt, setEndsAt ] = useState("");
@@ -65,17 +88,31 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         const bxgyGetEffectValid =
             bxgyGetEffect === "FREE" ||
-            (
-                bxgyGetEffect === "PERCENTAGE" &&
+            (bxgyGetEffect === "PERCENTAGE" &&
                 Number.isFinite(Number(bxgyGetPercentage)) &&
                 Number(bxgyGetPercentage) > 0 &&
-                Number(bxgyGetPercentage) <= 100
-            );
+                Number(bxgyGetPercentage) <= 100) ||
+            (bxgyGetEffect === "AMOUNT_OFF_EACH" &&
+                Number.isFinite(Number(bxgyGetAmount)) &&
+                Number(bxgyGetAmount) > 0);
+
+        const shippingCountriesValid =
+            groupValue !== "shipping" ||
+            shippingDestinationMode !== "SPECIFIC_COUNTRIES" ||
+            shippingDestinationCountries.length > 0;
+
+        const maximumShippingPriceValid =
+            groupValue !== "shipping" ||
+            maximumShippingPrice === "" ||
+            (Number.isFinite(Number(maximumShippingPrice)) &&
+                Number(maximumShippingPrice) > 0);
 
         const valueValid =
             groupValue === "bxgy"
                 ? bxgyBuyRequirementValid && bxgyGetQuantityValid && bxgyGetEffectValid
-                : defaultValueValid;
+                : groupValue === "shipping"
+                    ? shippingCountriesValid && maximumShippingPriceValid
+                    : defaultValueValid;
 
         const defaultConditionsValid =
             minimumType === "NONE" ||
@@ -92,11 +129,14 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         const bxgyUsesPerOrderLimitValid =
             bxgyUsesPerOrderLimit === "" ||
-            (Number.isInteger(Number(bxgyUsesPerOrderLimit)) && Number(bxgyUsesPerOrderLimit) > 0);
+            (Number.isInteger(Number(bxgyUsesPerOrderLimit)) &&
+                Number(bxgyUsesPerOrderLimit) > 0);
 
         const conditionsValid =
             groupValue === "bxgy"
-                ? bxgyBuyTargetsValid && bxgyGetTargetsValid && bxgyUsesPerOrderLimitValid
+                ? bxgyBuyTargetsValid &&
+                bxgyGetTargetsValid &&
+                bxgyUsesPerOrderLimitValid
                 : defaultConditionsValid;
 
         const scheduleValid = !endsAt || !startsAt || new Date(endsAt) > new Date(startsAt);
@@ -112,6 +152,8 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
             bxgyBuyTargetsValid,
             bxgyGetTargetsValid,
             bxgyUsesPerOrderLimitValid,
+            shippingCountriesValid,
+            maximumShippingPriceValid,
         };
     }, [
         title,
@@ -131,10 +173,14 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         bxgyGetQuantity,
         bxgyGetEffect,
         bxgyGetPercentage,
+        bxgyGetAmount,
         bxgyGetTargetType,
         bxgyGetProducts,
         bxgyGetCollections,
         bxgyUsesPerOrderLimit,
+        shippingDestinationMode,
+        shippingDestinationCountries,
+        maximumShippingPrice,
         startsAt,
         endsAt,
         groupValue,
@@ -145,7 +191,7 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         if (stepIndex === 1) return validation.basicsValid;
 
         if (stepIndex === 2) {
-            if (groupValue === "bxgy") {
+            if (groupValue === "bxgy" || groupValue === "shipping") {
                 return validation.basicsValid && validation.valueValid;
             }
 
@@ -202,10 +248,15 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         bxgyGetQuantity, setBxgyGetQuantity,
         bxgyGetEffect, setBxgyGetEffect,
         bxgyGetPercentage, setBxgyGetPercentage,
+        bxgyGetAmount, setBxgyGetAmount,
         bxgyGetTargetType, setBxgyGetTargetType,
         bxgyGetProducts, setBxgyGetProducts,
         bxgyGetCollections, setBxgyGetCollections,
         bxgyUsesPerOrderLimit, setBxgyUsesPerOrderLimit,
+
+        shippingDestinationMode, setShippingDestinationMode,
+        shippingDestinationCountries, setShippingDestinationCountries,
+        maximumShippingPrice, setMaximumShippingPrice,
 
         startsAt, setStartsAt,
         endsAt, setEndsAt,

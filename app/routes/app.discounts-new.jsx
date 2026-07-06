@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import prisma from "../db.server.js";
 import {
+    assertAdvancedFeatureAccess,
     assertCanCreateDiscount,
     canUseDiscountType,
     canUseTemplate,
@@ -32,6 +33,7 @@ const GROUP_CONFIG = {
         family: "PERCENTAGE_OR_FIXED",
         discountType: "ORDER_PERCENTAGE",
         method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Order discount",
         shortTitle: "Order",
         description: "Percentage or fixed discounts for the full cart.",
@@ -44,6 +46,7 @@ const GROUP_CONFIG = {
         family: "PERCENTAGE_OR_FIXED",
         discountType: "PRODUCT_PERCENTAGE",
         method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Product / collection discount",
         shortTitle: "Products",
         description: "Discount selected products or collections.",
@@ -56,6 +59,7 @@ const GROUP_CONFIG = {
         family: "BXGY",
         discountType: "BXGY",
         method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC" ],
         title: "Buy X get Y",
         shortTitle: "BXGY",
         description: "Create a BOGO or multi-buy promotion.",
@@ -68,6 +72,7 @@ const GROUP_CONFIG = {
         family: "FREE_SHIPPING",
         discountType: "FREE_SHIPPING",
         method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC" ],
         title: "Free shipping discount",
         shortTitle: "Shipping",
         description: "Create a shipping incentive for checkout conversion.",
@@ -80,6 +85,7 @@ const GROUP_CONFIG = {
         family: "APP_FUNCTION",
         discountType: "APP_VOLUME",
         method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC" ],
         title: "Smart app discount",
         shortTitle: "App discount",
         description: "Advanced Functions-based logic for premium plans.",
@@ -130,6 +136,42 @@ function parseJsonArray(value) {
     } catch {
         return [];
     }
+}
+
+function buildBxgyConfigPayload(formData) {
+    const buyRequirementType = String(formData.get("bxgyBuyRequirementType") || "QUANTITY");
+    const buyTargetType = String(formData.get("bxgyBuyTargetType") || "PRODUCTS");
+    const getTargetType = String(formData.get("bxgyGetTargetType") || "PRODUCTS");
+    const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
+
+    const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
+    const buyCollections = parseJsonArray(formData.get("bxgyBuyCollections"));
+    const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
+    const getCollections = parseJsonArray(formData.get("bxgyGetCollections"));
+
+    const buyQuantityRaw = formData.get("bxgyBuyQuantity");
+    const buyAmountRaw = formData.get("bxgyBuyAmount");
+    const getQuantityRaw = formData.get("bxgyGetQuantity");
+    const getPercentageRaw = formData.get("bxgyGetPercentage");
+    const getAmountRaw = formData.get("bxgyGetAmount");
+
+    return {
+        customerBuysType: buyRequirementType,
+        customerBuysQty:
+            buyRequirementType === "QUANTITY" && buyQuantityRaw ? Number(buyQuantityRaw) : null,
+        customerBuysAmount:
+            buyRequirementType === "AMOUNT" && buyAmountRaw ? Number(buyAmountRaw) : null,
+        customerBuysProducts: buyTargetType === "PRODUCTS" ? buyProducts : null,
+        customerBuysCollections: buyTargetType === "COLLECTIONS" ? buyCollections : null,
+        customerGetsQty: getQuantityRaw ? Number(getQuantityRaw) : 1,
+        customerGetsEffect: getEffect,
+        customerGetsPercentage:
+            getEffect === "PERCENTAGE" && getPercentageRaw ? Number(getPercentageRaw) : null,
+        customerGetsAmount:
+            getEffect === "AMOUNT_OFF_EACH" && getAmountRaw ? Number(getAmountRaw) : null,
+        customerGetsProducts: getTargetType === "PRODUCTS" ? getProducts : null,
+        customerGetsCollections: getTargetType === "COLLECTIONS" ? getCollections : null,
+    };
 }
 
 function buildDraftPayload({ shopId, formData, access, template }) {
@@ -192,7 +234,16 @@ function buildDraftPayload({ shopId, formData, access, template }) {
     const startsAtRaw = formData.get("startsAt");
     const endsAtRaw = formData.get("endsAt");
 
-    const templateSlug = template?.slug || String(formData.get("templateSlug") || "").trim() || null;
+    const shippingDestinationMode = String(
+        formData.get("shippingDestinationMode") || "ALL"
+    );
+    const shippingDestinationCountriesRaw = parseJsonArray(
+        formData.get("shippingDestinationCountries")
+    );
+    const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
+
+    const templateSlug =
+        template?.slug || String(formData.get("templateSlug") || "").trim() || null;
 
     return {
         shopId,
@@ -202,7 +253,12 @@ function buildDraftPayload({ shopId, formData, access, template }) {
         method,
         shopifyDiscountCode,
         status: "DRAFT",
-        discountValue: Number.isFinite(discountValue) ? discountValue : null,
+        discountValue:
+            discountType === "FREE_SHIPPING"
+                ? null
+                : Number.isFinite(discountValue)
+                    ? discountValue
+                    : null,
         isPercentage,
         appliesToAll,
         targetProducts,
@@ -211,12 +267,28 @@ function buildDraftPayload({ shopId, formData, access, template }) {
         minimumSubtotal: minimumSubtotalRaw ? Number(minimumSubtotalRaw) : null,
         minimumQuantity: minimumQuantityRaw ? Number(minimumQuantityRaw) : null,
         usageLimit: usageLimitRaw ? Number(usageLimitRaw) : null,
+        usesPerOrderLimit: (() => {
+            const raw = formData.get("bxgyUsesPerOrderLimit");
+            return raw ? Number(raw) : null;
+        })(),
         appliesOncePerCustomer,
         combineWithOrderDiscounts,
         combineWithProductDiscounts,
         combineWithShippingDiscounts,
         startsAt: startsAtRaw ? new Date(startsAtRaw) : new Date(),
         endsAt: endsAtRaw ? new Date(endsAtRaw) : null,
+        shippingDestinationCountries:
+            discountType === "FREE_SHIPPING"
+                ? shippingDestinationMode === "SPECIFIC_COUNTRIES"
+                    ? shippingDestinationCountriesRaw
+                    : null
+                : null,
+        maximumShippingPrice:
+            discountType === "FREE_SHIPPING" &&
+                maximumShippingPriceRaw !== "" &&
+                maximumShippingPriceRaw != null
+                ? Number(maximumShippingPriceRaw)
+                : null,
         templateSlug,
         createdOnPlan: access.planName,
     };
@@ -318,8 +390,27 @@ export const action = async ({ request }) => {
         template,
     });
 
+    try {
+        assertAdvancedFeatureAccess(access, { group, formData });
+    } catch (err) {
+        return data({ errors: { form: err.message } }, { status: 403 });
+    }
+
     const title = String(formData.get("title") || "").trim();
     const method = String(formData.get("method") || groupConfig.method);
+    if (!groupConfig.supportedMethods.includes(method)) {
+        return data(
+            {
+                errors: {
+                    form: `${groupConfig.title} currently supports ${groupConfig.supportedMethods
+                        .map((item) => item.toLowerCase())
+                        .join(" or ")} method only.`,
+                },
+            },
+            { status: 400 }
+        );
+    }
+
     const discountCode = String(formData.get("discountCode") || "").trim();
 
     const discountValueRaw = formData.get("discountValue");
@@ -332,11 +423,17 @@ export const action = async ({ request }) => {
 
     if (group === "product") {
         if (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length === 0) {
-            return data({ errors: { targetProducts: "Add at least one product target." } }, { status: 400 });
+            return data(
+                { errors: { targetProducts: "Add at least one product target." } },
+                { status: 400 }
+            );
         }
 
         if (scopeMode === "SPECIFIC_COLLECTIONS" && targetCollections.length === 0) {
-            return data({ errors: { targetCollections: "Add at least one collection target." } }, { status: 400 });
+            return data(
+                { errors: { targetCollections: "Add at least one collection target." } },
+                { status: 400 }
+            );
         }
     }
 
@@ -347,7 +444,21 @@ export const action = async ({ request }) => {
     const endsAt = formData.get("endsAt");
     const usageLimit = formData.get("usageLimit");
 
+    const shippingDestinationMode = String(
+        formData.get("shippingDestinationMode") || "ALL"
+    );
+    const shippingDestinationCountries = parseJsonArray(
+        formData.get("shippingDestinationCountries")
+    );
+    const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
+    const maximumShippingPrice =
+        maximumShippingPriceRaw === "" || maximumShippingPriceRaw == null
+            ? null
+            : Number(maximumShippingPriceRaw);
+
     const errors = {};
+    const isBxgy = groupConfig.discountType === "BXGY";
+    const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
 
     if (!title) {
         errors.title = "Title is required.";
@@ -358,19 +469,100 @@ export const action = async ({ request }) => {
     }
 
     if (
-        groupConfig.discountType !== "BXGY" &&
-        groupConfig.discountType !== "FREE_SHIPPING" &&
+        !isBxgy &&
+        !isFreeShipping &&
         (discountValue == null || !Number.isFinite(discountValue) || discountValue <= 0)
     ) {
         errors.discountValue = "Enter a valid discount value.";
     }
 
     if (
-        groupConfig.discountType !== "BXGY" &&
+        !isBxgy &&
+        !isFreeShipping &&
         String(formData.get("isPercentage") || "true") === "true" &&
         discountValue > 100
     ) {
         errors.discountValue = "Percentage value cannot be more than 100.";
+    }
+
+    if (isFreeShipping) {
+        if (
+            shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
+            shippingDestinationCountries.length === 0
+        ) {
+            errors.shippingDestinationCountries =
+                "Add at least one destination country.";
+        }
+
+        if (
+            maximumShippingPriceRaw &&
+            (!Number.isFinite(maximumShippingPrice) || maximumShippingPrice <= 0)
+        ) {
+            errors.maximumShippingPrice =
+                "Maximum shipping price must be greater than 0.";
+        }
+    }
+
+    if (isBxgy) {
+        const buyRequirementType = String(formData.get("bxgyBuyRequirementType") || "QUANTITY");
+        const buyQuantity = Number(formData.get("bxgyBuyQuantity"));
+        const buyAmount = Number(formData.get("bxgyBuyAmount"));
+        const buyTargetType = String(formData.get("bxgyBuyTargetType") || "PRODUCTS");
+        const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
+        const buyCollections = parseJsonArray(formData.get("bxgyBuyCollections"));
+
+        const getQuantity = Number(formData.get("bxgyGetQuantity"));
+        const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
+        const getPercentage = Number(formData.get("bxgyGetPercentage"));
+        const getAmount = Number(formData.get("bxgyGetAmount"));
+        const getTargetType = String(formData.get("bxgyGetTargetType") || "PRODUCTS");
+        const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
+        const getCollections = parseJsonArray(formData.get("bxgyGetCollections"));
+
+        const usesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
+
+        if (buyRequirementType === "QUANTITY" && (!Number.isInteger(buyQuantity) || buyQuantity <= 0)) {
+            errors.bxgyBuyQuantity = "Enter a valid buy quantity.";
+        }
+
+        if (buyRequirementType === "AMOUNT" && (!Number.isFinite(buyAmount) || buyAmount <= 0)) {
+            errors.bxgyBuyAmount = "Enter a valid spend amount.";
+        }
+
+        if (buyTargetType === "PRODUCTS" && buyProducts.length === 0) {
+            errors.bxgyBuyProducts = "Add at least one product customers must buy.";
+        }
+
+        if (buyTargetType === "COLLECTIONS" && buyCollections.length === 0) {
+            errors.bxgyBuyCollections = "Add at least one collection customers must buy from.";
+        }
+
+        if (!Number.isInteger(getQuantity) || getQuantity <= 0) {
+            errors.bxgyGetQuantity = "Enter a valid reward quantity.";
+        }
+
+        if (
+            getEffect === "PERCENTAGE" &&
+            (!Number.isFinite(getPercentage) || getPercentage <= 0 || getPercentage > 100)
+        ) {
+            errors.bxgyGetPercentage = "Enter a valid reward percentage.";
+        }
+
+        if (getEffect === "AMOUNT_OFF_EACH" && (!Number.isFinite(getAmount) || getAmount <= 0)) {
+            errors.bxgyGetAmount = "Enter a valid amount off per reward item.";
+        }
+
+        if (getTargetType === "PRODUCTS" && getProducts.length === 0) {
+            errors.bxgyGetProducts = "Add at least one reward product.";
+        }
+
+        if (getTargetType === "COLLECTIONS" && getCollections.length === 0) {
+            errors.bxgyGetCollections = "Add at least one reward collection.";
+        }
+
+        if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
+            errors.bxgyUsesPerOrderLimit = "Uses per order must be greater than 0.";
+        }
     }
 
     if (minimumType === "SUBTOTAL" && (!minimumSubtotal || Number(minimumSubtotal) <= 0)) {
@@ -408,17 +600,28 @@ export const action = async ({ request }) => {
     }
 
     const intent = String(formData.get("intent") || "draft");
-    const discount = await prisma.discount.create({ data: payload });
+
+    const discount = await prisma.discount.create({
+        data: {
+            ...payload,
+            ...(payload.discountType === "BXGY"
+                ? {
+                    bxgyConfig: {
+                        create: buildBxgyConfigPayload(formData),
+                    },
+                }
+                : {}),
+        },
+        include: {
+            bxgyConfig: true,
+        },
+    });
 
     const syncDiscount = {
         ...discount,
         group,
         scopeMode,
     };
-
-    if (payload.discountType === "BXGY") {
-        await prisma.bxgyConfig.create({ data: { discountId: discount.id } });
-    }
 
     if (intent === "draft") {
         return redirect(`/app/discounts?draft=${discount.id}`);
@@ -445,11 +648,18 @@ export const action = async ({ request }) => {
     } catch (err) {
         await prisma.discount.update({
             where: { id: discount.id },
-            data: { status: "FAILED", lastError: String(err?.message || err) },
+            data: {
+                status: "FAILED",
+                lastError: String(err?.message || err),
+            },
         });
 
         return data(
-            { errors: { form: `Saved as draft, but publishing to Shopify failed: ${err?.message || err}` } },
+            {
+                errors: {
+                    form: `Saved as draft, but publishing to Shopify failed: ${err?.message || err}`,
+                },
+            },
             { status: 422 }
         );
     }
@@ -554,12 +764,67 @@ export default function DiscountCreatePage() {
                     <input type="hidden" name="minimumSubtotal" value={state.minimumSubtotal} />
                     <input type="hidden" name="minimumQuantity" value={state.minimumQuantity} />
                     <input type="hidden" name="usageLimit" value={state.usageLimit} />
-                    <input type="hidden" name="appliesOncePerCustomer" value={String(state.appliesOncePerCustomer)} />
-                    <input type="hidden" name="combineWithOrderDiscounts" value={String(state.combineWithOrderDiscounts)} />
-                    <input type="hidden" name="combineWithProductDiscounts" value={String(state.combineWithProductDiscounts)} />
-                    <input type="hidden" name="combineWithShippingDiscounts" value={String(state.combineWithShippingDiscounts)} />
+                    <input
+                        type="hidden"
+                        name="appliesOncePerCustomer"
+                        value={String(state.appliesOncePerCustomer)}
+                    />
+                    <input
+                        type="hidden"
+                        name="combineWithOrderDiscounts"
+                        value={String(state.combineWithOrderDiscounts)}
+                    />
+                    <input
+                        type="hidden"
+                        name="combineWithProductDiscounts"
+                        value={String(state.combineWithProductDiscounts)}
+                    />
+                    <input
+                        type="hidden"
+                        name="combineWithShippingDiscounts"
+                        value={String(state.combineWithShippingDiscounts)}
+                    />
                     <input type="hidden" name="startsAt" value={state.startsAt} />
                     <input type="hidden" name="endsAt" value={state.endsAt} />
+
+                    {groupValue === "shipping" ? (
+                        <>
+                            <input
+                                type="hidden"
+                                name="shippingDestinationMode"
+                                value={state.shippingDestinationMode}
+                            />
+                            <input
+                                type="hidden"
+                                name="shippingDestinationCountries"
+                                value={JSON.stringify(state.shippingDestinationCountries)}
+                            />
+                            <input
+                                type="hidden"
+                                name="maximumShippingPrice"
+                                value={state.maximumShippingPrice}
+                            />
+                        </>
+                    ) : null}
+
+                    {groupValue === "bxgy" ? (
+                        <>
+                            <input type="hidden" name="bxgyBuyRequirementType" value={state.bxgyBuyRequirementType} />
+                            <input type="hidden" name="bxgyBuyQuantity" value={state.bxgyBuyQuantity} />
+                            <input type="hidden" name="bxgyBuyAmount" value={state.bxgyBuyAmount} />
+                            <input type="hidden" name="bxgyBuyTargetType" value={state.bxgyBuyTargetType} />
+                            <input type="hidden" name="bxgyBuyProducts" value={JSON.stringify(state.bxgyBuyProducts.map((i) => i.id))} />
+                            <input type="hidden" name="bxgyBuyCollections" value={JSON.stringify(state.bxgyBuyCollections.map((i) => i.id))} />
+                            <input type="hidden" name="bxgyGetQuantity" value={state.bxgyGetQuantity} />
+                            <input type="hidden" name="bxgyGetEffect" value={state.bxgyGetEffect} />
+                            <input type="hidden" name="bxgyGetPercentage" value={state.bxgyGetPercentage} />
+                            <input type="hidden" name="bxgyGetAmount" value={state.bxgyGetAmount} />
+                            <input type="hidden" name="bxgyGetTargetType" value={state.bxgyGetTargetType} />
+                            <input type="hidden" name="bxgyGetProducts" value={JSON.stringify(state.bxgyGetProducts.map((i) => i.id))} />
+                            <input type="hidden" name="bxgyGetCollections" value={JSON.stringify(state.bxgyGetCollections.map((i) => i.id))} />
+                            <input type="hidden" name="bxgyUsesPerOrderLimit" value={state.bxgyUsesPerOrderLimit} />
+                        </>
+                    ) : null}
 
                     <StepProgress
                         currentIndex={state.currentStep}

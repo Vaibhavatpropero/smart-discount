@@ -100,6 +100,7 @@ enum BxgyCustomerBuysValueType {
 
 enum BxgyGetsEffect {
   PERCENTAGE // e.g. 50% off the Y items
+  AMOUNT_OFF_EACH // e.g. $50 off on get item
   FREE // 100% off — effectively free
 }
 
@@ -372,6 +373,7 @@ model BxgyConfig {
   customerGetsEffect     BxgyGetsEffect @default(FREE)
   // Used when effect=PERCENTAGE (e.g. 50.00 for 50% off)
   customerGetsPercentage Decimal?       @db.Decimal(5, 2)
+  customerGetsAmount     Decimal?       @db.Decimal(10, 2) // used when effect = AMOUNT_OFF_EACH
 
   // What they get — null = same products as they bought (BOGO same-product)
   customerGetsProducts    Json?

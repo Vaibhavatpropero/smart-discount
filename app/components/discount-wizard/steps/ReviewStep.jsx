@@ -15,7 +15,9 @@ function formatBxgySummary(state, symbol) {
     const getValuePart =
         state.bxgyGetEffect === "PERCENTAGE"
             ? `${state.bxgyGetPercentage || 0}% off`
-            : "free";
+            : state.bxgyGetEffect === "AMOUNT_OFF_EACH"
+                ? `${symbol}${state.bxgyGetAmount || 0} off each`
+                : "free";
 
     const getTargetPart =
         state.bxgyGetTargetType === "COLLECTIONS"
@@ -25,11 +27,30 @@ function formatBxgySummary(state, symbol) {
     return `${buyPart} from ${buyTargetPart} → get ${state.bxgyGetQuantity || 0} reward item(s) ${getValuePart} from ${getTargetPart}`;
 }
 
+function formatShippingSummary(state, symbol) {
+    const destinationPart =
+        state.shippingDestinationMode === "SPECIFIC_COUNTRIES"
+            ? state.shippingDestinationCountries.length > 0
+                ? state.shippingDestinationCountries.join(", ")
+                : "No countries selected"
+            : "All countries";
+
+    const maxRatePart = state.maximumShippingPrice
+        ? `Up to ${symbol}${state.maximumShippingPrice}`
+        : "All shipping rates";
+
+    return `Free shipping for ${destinationPart} · ${maxRatePart}`;
+}
+
 export default function ReviewStep({ state, groupConfig, busy, shopCurrency }) {
     const symbol = getCurrencySymbol(shopCurrency);
     const isBxgy = groupConfig.discountType === "BXGY";
+    const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
 
-    const valueLabel = state.isPercentage ? `${state.discountValue || 0}% off` : `${symbol}${state.discountValue || 0} off`;
+    const valueLabel = state.isPercentage
+        ? `${state.discountValue || 0}% off`
+        : `${symbol}${state.discountValue || 0} off`;
+
     const minLabel =
         state.minimumType === "SUBTOTAL"
             ? `Min. order ${symbol}${state.minimumSubtotal || 0}`
@@ -45,24 +66,55 @@ export default function ReviewStep({ state, groupConfig, busy, shopCurrency }) {
             { label: "BXGY rule", value: formatBxgySummary(state, symbol) },
             { label: "Usage limit", value: state.usageLimit || "Unlimited" },
             { label: "Uses per order", value: state.bxgyUsesPerOrderLimit || "Unlimited" },
-            { label: "Schedule", value: state.startsAt ? `${state.startsAt} → ${state.endsAt || "No end date"}` : "Starts immediately" },
+            {
+                label: "Schedule",
+                value: state.startsAt
+                    ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                    : "Starts immediately",
+            },
         ]
-        : [
-            { label: "Title", value: state.title },
-            { label: "Discount family", value: groupConfig.title },
-            { label: "Method", value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic" },
-            { label: "Value", value: `${valueLabel} entire order` },
-            { label: "Condition", value: minLabel },
-            { label: "Usage limit", value: state.usageLimit || "Unlimited" },
-            { label: "Schedule", value: state.startsAt ? `${state.startsAt} → ${state.endsAt || "No end date"}` : "Starts immediately" },
-        ];
+        : isFreeShipping
+            ? [
+                { label: "Title", value: state.title },
+                { label: "Discount family", value: groupConfig.title },
+                { label: "Method", value: "Automatic" },
+                { label: "Shipping offer", value: formatShippingSummary(state, symbol) },
+                { label: "Condition", value: minLabel },
+                { label: "Usage limit", value: state.usageLimit || "Unlimited" },
+                {
+                    label: "Schedule",
+                    value: state.startsAt
+                        ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                        : "Starts immediately",
+                },
+            ]
+            : [
+                { label: "Title", value: state.title },
+                { label: "Discount family", value: groupConfig.title },
+                {
+                    label: "Method",
+                    value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic",
+                },
+                { label: "Value", value: `${valueLabel} entire order` },
+                { label: "Condition", value: minLabel },
+                { label: "Usage limit", value: state.usageLimit || "Unlimited" },
+                {
+                    label: "Schedule",
+                    value: state.startsAt
+                        ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                        : "Starts immediately",
+                },
+            ];
 
     return (
         <div className="space-y-6">
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
                 <dl className="space-y-3">
                     {rows.map((row) => (
-                        <div key={row.label} className="flex items-start justify-between gap-4 text-sm">
+                        <div
+                            key={row.label}
+                            className="flex items-start justify-between gap-4 text-sm"
+                        >
                             <dt className="text-gray-500">{row.label}</dt>
                             <dd className="text-right font-medium text-gray-900">{row.value}</dd>
                         </div>

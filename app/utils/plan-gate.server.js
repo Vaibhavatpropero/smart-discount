@@ -241,6 +241,27 @@ export async function requireCreateDiscountAccess(request) {
     return context;
 }
 
+export function assertAdvancedFeatureAccess(access, { group, formData }) {
+    if (access.isAdvance) return;
+
+    const violations = [];
+
+    if (group === "app") {
+        violations.push("App-powered custom discounts require the Advance plan.");
+    }
+
+    const customerSegments = formData.get("customerSegments");
+    if (customerSegments && customerSegments !== "[]") {
+        violations.push("Customer segment targeting requires the Advance plan.");
+    }
+
+    if (violations.length > 0) {
+        const error = new Error(violations[ 0 ]);
+        error.code = "PLAN_RESTRICTED";
+        throw error;
+    }
+}
+
 export async function assertCanCreateDiscount({
     request,
     activeDiscountCount,
