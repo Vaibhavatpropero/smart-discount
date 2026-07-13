@@ -220,16 +220,12 @@ function buildEndsAt(discount) {
 }
 
 function buildFreeShippingDestination(discount) {
-    const countryCodes = Array.isArray(discount.shippingCountries)
-        ? discount.shippingCountries.filter(Boolean)
+    const countryCodes = Array.isArray(discount.shippingDestinationCountries)
+        ? discount.shippingDestinationCountries.filter(Boolean)
         : [];
 
     if (countryCodes.length > 0) {
-        return {
-            countries: {
-                add: countryCodes,
-            },
-        };
+        return { country: { add: countryCodes } };
     }
 
     return { all: true };

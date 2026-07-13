@@ -1,14 +1,14 @@
 // app/routes/app.discounts.jsx
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { data, Link, Outlet, useLoaderData } from "react-router";
+import { data, Link, Outlet, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import prisma from "../db.server";
 import {
     getPlanContext,
     getDiscountAccessState,
-    // canUseDiscountType,
     canUseTemplate,
 } from "../utils/plan-gate.server";
-import { RouteErrorFallback } from "../components";
+import { SquarePen } from 'lucide-react';
+import { DeleteDiscountButton, RouteErrorFallback } from "../components";
 
 export const loader = async ({ request }) => {
     const { shop, access, trialDaysRemaining } = await getPlanContext(request);
@@ -16,16 +16,21 @@ export const loader = async ({ request }) => {
     const [ discountsRaw, templatesRaw ] = await Promise.all([
         prisma.discount.findMany({
             where: { shopId: shop.id },
-            orderBy: [ { status: "asc" }, { updatedAt: "desc" } ],
+            orderBy: { createdAt: "desc" },
             take: 50,
             select: {
                 id: true,
+                shopifyDiscountId: true,
                 title: true,
                 discountType: true,
                 method: true,
                 status: true,
+                startsAt: true,
+                endsAt: true,
                 createdOnPlan: true,
+                createdAt: true,
                 updatedAt: true,
+                lastSyncedAt: true,
                 customerSegments: true,
                 shippingDestinationCountries: true,
                 totalUsageCount: true,
@@ -50,17 +55,51 @@ export const loader = async ({ request }) => {
         }),
     ]);
 
-    const discounts = discountsRaw.map((discount) => {
-        const accessState = getDiscountAccessState(access, discount);
+    const discounts = discountsRaw
+        .map((discount) => {
+            const accessState = getDiscountAccessState(access, discount);
+            const canEditDraft = [ "DRAFT", "FAILED" ].includes(discount.status) && !access.isExpired;
 
-        return {
-            ...discount,
-            updatedAtLabel: new Date(discount.updatedAt).toLocaleDateString(),
-            totalSavingsLabel:
-                discount.totalSavings != null ? Number(discount.totalSavings).toFixed(2) : "0.00",
-            accessState,
-        };
-    });
+            const now = new Date();
+            const hasEnded = discount.endsAt ? new Date(discount.endsAt) <= now : false;
+            const canToggle =
+                !accessState.lockedByPlan &&
+                (
+                    discount.status === "ACTIVE" ||
+                    (discount.status === "SCHEDULED" && !hasEnded)
+                );
+            const canDelete =
+                accessState.canDelete &&
+                [ "DRAFT", "SCHEDULED", "DISABLED", "FAILED" ].includes(discount.status);
+
+            return {
+                ...discount,
+                updatedAtLabel: new Date(discount.updatedAt).toLocaleDateString(),
+                totalSavingsLabel:
+                    discount.totalSavings != null ? Number(discount.totalSavings).toFixed(2) : "0.00",
+                accessState,
+                canEditDraft,
+                canToggle,
+                canDelete,
+                editHref: canEditDraft ? `/app/discounts-edit?id=${discount.id}` : null,
+            };
+        })
+        .sort((a, b) => {
+            const aIsDraftGroup = [ "DRAFT", "FAILED" ].includes(a.status);
+            const bIsDraftGroup = [ "DRAFT", "FAILED" ].includes(b.status);
+
+            if (aIsDraftGroup && !bIsDraftGroup) return -1;
+            if (!aIsDraftGroup && bIsDraftGroup) return 1;
+
+            if (aIsDraftGroup && bIsDraftGroup) {
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            }
+
+            const aPublishedAt = a.lastSyncedAt ? new Date(a.lastSyncedAt) : new Date(a.updatedAt);
+            const bPublishedAt = b.lastSyncedAt ? new Date(b.lastSyncedAt) : new Date(b.updatedAt);
+
+            return bPublishedAt - aPublishedAt;
+        });
 
     const templates = templatesRaw.map((template) => ({
         ...template,
@@ -325,6 +364,82 @@ function TemplateCard({ template, access }) {
     );
 }
 
+function EditCell({ discount }) {
+    if (!discount.canEditDraft || !discount.editHref) {
+        return <span className="text-sm text-gray-400">—</span>;
+    }
+
+    return (
+        <Link
+            to={discount.editHref}
+        >
+            <SquarePen className="h-5 w-5" />
+        </Link>
+    );
+}
+
+function DiscountToggle({ discount }) {
+    const fetcher = useFetcher();
+    const revalidator = useRevalidator();
+    const isSubmitting = fetcher.state !== "idle";
+
+    const checked =
+        fetcher.formData?.get("nextState") === "DISABLED"
+            ? false
+            : fetcher.formData?.get("nextState") === "ACTIVE"
+                ? true
+                : discount.status === "ACTIVE";
+
+    if (fetcher.data?.success && revalidator.state === "idle") {
+        revalidator.revalidate();
+    }
+
+    return (
+        <fetcher.Form method="post" action="/api/discount-toggle">
+            <input type="hidden" name="discountId" value={discount.id} />
+            <button
+                type="submit"
+                name="nextState"
+                value={checked ? "DISABLED" : "ACTIVE"}
+                disabled={isSubmitting}
+                aria-label={checked ? "Deactivate discount" : "Activate discount"}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${checked ? "bg-green-600" : "bg-gray-300"
+                    } ${isSubmitting ? "cursor-not-allowed opacity-60" : ""}`}
+            >
+                <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${checked ? "translate-x-6" : "translate-x-1"
+                        }`}
+                />
+            </button>
+        </fetcher.Form>
+    );
+}
+
+function ActionCell({ discount }) {
+    const showToggle =
+        !discount.accessState.lockedByPlan &&
+        discount.status !== "DRAFT" &&
+        discount.status !== "FAILED" &&
+        discount.canToggle;
+
+    const showDelete = discount.canDelete;
+
+    if (!showToggle && !showDelete) {
+        if (discount.status === "DRAFT" || discount.status === "FAILED") {
+            return <span className="text-sm text-gray-400">Not published</span>;
+        }
+
+        return <span className="text-sm text-gray-400">—</span>;
+    }
+
+    return (
+        <div className="flex items-center gap-3">
+            {showToggle ? <DiscountToggle discount={discount} /> : <span className="text-sm text-gray-400">—</span>}
+            {showDelete ? <DeleteDiscountButton discount={discount} /> : null}
+        </div>
+    );
+}
+
 export default function DiscountsPage() {
     const { access, trialDaysRemaining, stats, discounts, templates, createOptions } =
         useLoaderData();
@@ -352,9 +467,7 @@ export default function DiscountsPage() {
                         </Link>
                         <Link
                             to={access.canOpenCreateDiscount ? "/app/discounts/new" : "/app/billing?reason=trial_expired"}
-                            className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white ${access.canOpenCreateDiscount
-                                ? "bg-blue-600 hover:bg-blue-700"
-                                : "bg-gray-400"
+                            className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white ${access.canOpenCreateDiscount ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
                                 }`}
                         >
                             Create discount
@@ -475,6 +588,12 @@ export default function DiscountsPage() {
                                         <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                                             Updated
                                         </th>
+                                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Edit
+                                        </th>
+                                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Action
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -497,6 +616,12 @@ export default function DiscountsPage() {
                                             </td>
                                             <td className="px-5 py-4 text-sm text-gray-500">{discount.totalUsageCount}</td>
                                             <td className="px-5 py-4 text-sm text-gray-500">{discount.updatedAtLabel}</td>
+                                            <td className="px-5 py-4">
+                                                <EditCell discount={discount} />
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <ActionCell discount={discount} />
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -504,6 +629,8 @@ export default function DiscountsPage() {
                         )}
                     </div>
                 </section>
+
+                <Outlet />
             </div>
         </div>
     );

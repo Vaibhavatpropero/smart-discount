@@ -39,6 +39,33 @@ const COLLECTION_QUERY = `#graphql
   }
 `;
 
+const NODES_QUERY = `#graphql
+  query ResourceNodes($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Product {
+        id
+        title
+        handle
+        description
+        status
+        featuredImage { url altText }
+        priceRangeV2 { minVariantPrice { amount currencyCode } }
+        variants(first: 5) {
+          edges { node { sku } }
+        }
+      }
+      ... on Collection {
+        id
+        title
+        handle
+        description
+        image { url altText }
+        productsCount { count }
+      }
+    }
+  }
+`;
+
 function buildProductSearchQuery(term) {
   const safe = term.replace(/"/g, '\\"');
   return `title:*${safe}* OR handle:*${safe}* OR sku:*${safe}*`;
@@ -72,9 +99,20 @@ function normalizeCollection(node) {
     type: "collection",
     title: node.title,
     handle: node.handle,
+    description: node.description || null,
+    status: "ACTIVE",
     image: node.image?.url || null,
     countLabel: `${node.productsCount?.count ?? 0} products`,
   };
+}
+
+function parseIdsParam(value) {
+  if (!value) return [];
+
+  return value
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 }
 
 export const loader = async ({ request }) => {
@@ -83,10 +121,38 @@ export const loader = async ({ request }) => {
 
   const type = String(url.searchParams.get("type") || "product").toLowerCase();
   const term = String(url.searchParams.get("q") || "").trim();
+  const ids = parseIdsParam(url.searchParams.get("ids"));
   const excludeParam = url.searchParams.get("exclude") || "";
   const excludeIds = new Set(
     excludeParam.split(",").map((id) => id.trim()).filter(Boolean)
   );
+
+  if (ids.length > 0) {
+    const response = await admin.graphql(NODES_QUERY, {
+      variables: { ids },
+    });
+    const json = await response.json();
+    const nodes = json?.data?.nodes || [];
+
+    const results = nodes
+      .map((node) => {
+        if (!node?.id) return null;
+
+        if (type === "collection") {
+          return node.handle !== undefined && node.productsCount !== undefined
+            ? normalizeCollection(node)
+            : null;
+        }
+
+        return node.status !== undefined && node.priceRangeV2 !== undefined
+          ? normalizeProduct(node)
+          : null;
+      })
+      .filter(Boolean)
+      .filter((item) => !excludeIds.has(item.id));
+
+    return data({ results });
+  }
 
   if (!term) {
     return data({ results: [] });

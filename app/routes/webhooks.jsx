@@ -1,7 +1,7 @@
 // app/routes/webhooks.jsx
 import { authenticate } from "../shopify.server.js";
 import prisma from "../db.server.js";
-import { normalizeShopifySubscriptionStatus } from "../utils/billing.server.js";
+import { handleAppSubscriptionUpdateWebhook } from "../services/subscription.server.js";
 import { invalidateAccessCache } from "../utils/access-cache.server.js";
 import { logger } from "../utils/logger.server.js";
 
@@ -28,7 +28,7 @@ export async function action({ request }) {
     try {
         switch (topic) {
             case "APP_SUBSCRIPTIONS_UPDATE":
-                await handleAppSubscriptionsUpdate({ shop, payload, webhookId });
+                await handleAppSubscriptionUpdateWebhook({ shop, payload, webhookId });
                 break;
 
             case "APP_UNINSTALLED":
@@ -68,163 +68,6 @@ export async function action({ request }) {
 
         return new Response("Webhook handler error", { status: 500 });
     }
-}
-
-async function handleAppSubscriptionsUpdate({ shop, payload, webhookId }) {
-    const appSubscription = payload?.app_subscription ?? payload ?? {};
-    const shopifySubscriptionId =
-        appSubscription.admin_graphql_api_id || appSubscription.id || null;
-    const shopifyStatus = appSubscription.status || null;
-
-    logger.info("webhooks", "Processing APP_SUBSCRIPTIONS_UPDATE", {
-        shop,
-        webhookId,
-        shopifySubscriptionId,
-        shopifyStatus,
-    });
-
-    const shopRecord = await prisma.shop.findUnique({
-        where: { shopDomain: shop },
-        include: { subscription: true },
-    });
-
-    if (!shopRecord) {
-        logger.warn("webhooks", "Shop not found for subscription webhook", {
-            shop,
-            webhookId,
-        });
-        return;
-    }
-
-    let subscription = null;
-
-    if (shopifySubscriptionId) {
-        subscription = await prisma.subscription.findFirst({
-            where: {
-                shopId: shopRecord.id,
-                shopifySubscriptionId,
-            },
-        });
-    }
-
-    if (!subscription && !shopifySubscriptionId && shopRecord.subscription) {
-        subscription = shopRecord.subscription;
-    }
-
-    if (!subscription) {
-        logger.warn("webhooks", "No matching local subscription found", {
-            shop,
-            webhookId,
-            shopifySubscriptionId,
-            payload,
-        });
-
-        await prisma.billingEvent.create({
-            data: {
-                shopId: shopRecord.id,
-                eventType: "SUBSCRIPTION_UPDATED",
-                planName: shopRecord.planName,
-                description: "Subscription webhook received but no local subscription matched",
-                metadata: {
-                    webhookId,
-                    payload,
-                    shopifySubscriptionId,
-                },
-            },
-        });
-
-        return;
-    }
-
-    const normalized = normalizeShopifySubscriptionStatus(shopifyStatus);
-
-    const subscriptionUpdateData = {
-        planStatus: normalized.subscriptionStatus,
-        lastSyncedAt: new Date(),
-    };
-
-    if (normalized.subscriptionStatus === "ACTIVE" && !subscription.activatedAt) {
-        subscriptionUpdateData.activatedAt = new Date();
-    }
-
-    if (normalized.subscriptionStatus === "CANCELLED") {
-        subscriptionUpdateData.cancelledAt = new Date();
-    }
-
-    if (normalized.subscriptionStatus === "EXPIRED") {
-        subscriptionUpdateData.expiresAt = new Date();
-    }
-
-    const operations = [
-        prisma.subscription.update({
-            where: { id: subscription.id },
-            data: subscriptionUpdateData,
-        }),
-        prisma.billingEvent.create({
-            data: {
-                shopId: shopRecord.id,
-                eventType: normalized.billingEventType,
-                planName: subscription.planName,
-                description: `Shopify subscription status changed to ${shopifyStatus}`,
-                metadata: {
-                    webhookId,
-                    payload,
-                    shopifySubscriptionId,
-                    localSubscriptionId: subscription.id,
-                },
-            },
-        }),
-    ];
-
-    const isCurrentShopSubscription =
-        Boolean(shopifySubscriptionId) &&
-        shopRecord.billingId === shopifySubscriptionId;
-
-    if (normalized.shopStatus) {
-        if (!isCurrentShopSubscription) {
-            logger.info("webhooks", "Skipping shop state update for non-current subscription", {
-                shop,
-                webhookId,
-                incomingShopifySubscriptionId: shopifySubscriptionId,
-                currentShopBillingId: shopRecord.billingId,
-                incomingSubscriptionStatus: normalized.subscriptionStatus,
-                incomingPlanName: subscription.planName,
-            });
-        } else {
-            operations.push(
-                prisma.shop.update({
-                    where: { id: shopRecord.id },
-                    data: {
-                        planName: subscription.planName,
-                        planStatus: normalized.shopStatus,
-                        billingConfirmedAt:
-                            normalized.subscriptionStatus === "ACTIVE"
-                                ? new Date()
-                                : shopRecord.billingConfirmedAt,
-                    },
-                })
-            );
-        }
-    }
-
-    await prisma.$transaction(operations);
-
-    invalidateAccessCache(shop);
-
-    logger.info("webhooks", "Subscription webhook applied successfully", {
-        shop,
-        webhookId,
-        updatedShopState: isCurrentShopSubscription,
-        finalPlanName:
-            isCurrentShopSubscription && normalized.shopStatus
-                ? subscription.planName
-                : shopRecord.planName,
-        finalPlanStatus:
-            isCurrentShopSubscription && normalized.shopStatus
-                ? normalized.shopStatus
-                : shopRecord.planStatus,
-        subscriptionStatus: normalized.subscriptionStatus,
-    });
 }
 
 async function handleAppUninstalled({ shop, session, webhookId }) {

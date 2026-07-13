@@ -295,57 +295,42 @@ function buildDraftPayload({ shopId, formData, access, template }) {
 }
 
 export const loader = async ({ request }) => {
-    const { admin } = await authenticate.admin(request);
+    const admin = await authenticate.admin(request);
     const { shop, access, trialDaysRemaining } = await requireCreateDiscountAccess(request);
-    const url = new URL(request.url);
 
+    const url = new URL(request.url);
     const currencyResponse = await admin.graphql(`#graphql
-        query ShopCurrency {
-            shop {
-                currencyCode
-                currencyFormats {
-                    moneyFormat
-                    moneyWithCurrencyFormat
-                }
-            }
+      query ShopCurrency {
+        shop {
+          currencyCode
+          currencyFormats {
+            moneyFormat
+            moneyWithCurrencyFormat
+          }
         }
+      }
     `);
     const currencyJson = await currencyResponse.json();
-    const shopCurrency = currencyJson?.data?.shop?.currencyCode || "USD";
+    const shopCurrency = currencyJson?.data?.shop?.currencyCode ?? "USD";
 
     const group = String(url.searchParams.get("group") || "order").toLowerCase();
     const templateSlug = url.searchParams.get("template");
     const groupConfig = getGroupConfig(group);
 
     let template = null;
-
     if (templateSlug) {
         template = await prisma.discountTemplate.findUnique({
             where: { slug: templateSlug },
         });
+    }
 
-        if (!template || !canUseTemplate(access, template)) {
-            throw redirect("/app/billing?reason=template_locked", { target: "_parent" });
-        }
+    if (templateSlug && (!template || !canUseTemplate(access, template))) {
+        throw redirect("app/billing?reason=templatelocked", { target: "parent" });
     }
 
     if (!canUseDiscountType(access, groupConfig.discountType)) {
-        throw redirect("/app/billing?reason=plan_locked", { target: "_parent" });
+        throw redirect("app/billing?reason=planlocked", { target: "parent" });
     }
-
-    const activeDiscountCount = await prisma.discount.count({
-        where: {
-            shopId: shop.id,
-            status: { in: [ "ACTIVE", "SCHEDULED" ] },
-        },
-    });
-
-    await assertCanCreateDiscount({
-        request,
-        activeDiscountCount,
-        discountType: groupConfig.discountType,
-        template,
-    });
 
     return data({
         shop: {
@@ -366,32 +351,49 @@ export const action = async ({ request }) => {
     const { admin } = await authenticate.admin(request);
     const context = await requireCreateDiscountAccess(request);
     const { shop, access } = context;
-    const formData = await request.formData();
 
+    const formData = await request.formData();
+    const intent = String(formData.get("intent") || "draft");
     const group = String(formData.get("group") || "order").toLowerCase();
-    const templateSlug = String(formData.get("templateSlug") || "") || null;
+    const templateSlug = String(formData.get("templateSlug") || "").trim() || null;
     const groupConfig = getGroupConfig(group);
 
     const template = templateSlug
         ? await prisma.discountTemplate.findUnique({ where: { slug: templateSlug } })
         : null;
 
-    const activeDiscountCount = await prisma.discount.count({
-        where: {
-            shopId: shop.id,
-            status: { in: [ "ACTIVE", "SCHEDULED" ] },
-        },
-    });
+    if (templateSlug && (!template || !canUseTemplate(access, template))) {
+        return data(
+            { errors: { form: "This template requires a higher plan." } },
+            { status: 403 }
+        );
+    }
 
-    await assertCanCreateDiscount({
-        request,
-        activeDiscountCount,
-        discountType: groupConfig.discountType,
-        template,
-    });
+    if (!canUseDiscountType(access, groupConfig.discountType)) {
+        return data(
+            { errors: { form: "This discount type requires a higher plan." } },
+            { status: 403 }
+        );
+    }
+
+    if (intent === "publish") {
+        const activeDiscountCount = await prisma.discount.count({
+            where: {
+                shopId: shop.id,
+                status: { in: [ "ACTIVE", "SCHEDULED" ] },
+            },
+        });
+
+        await assertCanCreateDiscount(
+            request,
+            activeDiscountCount,
+            groupConfig.discountType,
+            template
+        );
+    }
 
     try {
-        assertAdvancedFeatureAccess(access, { group, formData });
+        assertAdvancedFeatureAccess(access, group, formData);
     } catch (err) {
         return data({ errors: { form: err.message } }, { status: 403 });
     }
@@ -457,8 +459,11 @@ export const action = async ({ request }) => {
             : Number(maximumShippingPriceRaw);
 
     const errors = {};
-    const isBxgy = groupConfig.discountType === "BXGY";
-    const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
+    const postedDiscountType = String(
+        formData.get("discountType") || groupConfig.discountType
+    );
+    const isBxgy = postedDiscountType === "BXGY";
+    const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
 
     if (!title) {
         errors.title = "Title is required.";
@@ -490,8 +495,7 @@ export const action = async ({ request }) => {
             shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
             shippingDestinationCountries.length === 0
         ) {
-            errors.shippingDestinationCountries =
-                "Add at least one destination country.";
+            errors.shippingDestinationCountries = "Add at least one destination country.";
         }
 
         if (
@@ -599,8 +603,6 @@ export const action = async ({ request }) => {
         );
     }
 
-    const intent = String(formData.get("intent") || "draft");
-
     const discount = await prisma.discount.create({
         data: {
             ...payload,
@@ -694,6 +696,44 @@ function PlanBadge({ access, trialDaysRemaining }) {
     );
 }
 
+function StepContent({ state, errors, groupConfig, shopCurrency, busy }) {
+    switch (state.currentStep) {
+        case 0:
+            return <BasicsStep state={state} errors={errors} groupConfig={groupConfig} />;
+        case 1:
+            return (
+                <ValueStep
+                    state={state}
+                    errors={errors}
+                    shopCurrency={shopCurrency}
+                    groupConfig={groupConfig}
+                    busy={busy}
+                />
+            );
+        case 2:
+            return (
+                <ConditionsStep
+                    state={state}
+                    errors={errors}
+                    showTargeting={groupConfig.supportsTargets}
+                    groupConfig={groupConfig}
+                    shopCurrency={shopCurrency}
+                />
+            );
+        case 3:
+            return <ScheduleStep state={state} errors={errors} />;
+        case 4:
+        default:
+            return (
+                <ReviewStep
+                    state={state}
+                    groupConfig={groupConfig}
+                    shopCurrency={shopCurrency}
+                />
+            );
+    }
+}
+
 export default function DiscountCreatePage() {
     const { access, trialDaysRemaining, group, groupConfig, template, shopCurrency } = useLoaderData();
     const actionData = useActionData();
@@ -710,9 +750,6 @@ export default function DiscountCreatePage() {
             : groupValue === "order"
                 ? (state.isPercentage ? "ORDER_PERCENTAGE" : "ORDER_FIXED")
                 : groupConfig.discountType;
-
-    const stepComponents = [ BasicsStep, ValueStep, ConditionsStep, ScheduleStep, ReviewStep ];
-    const CurrentStepComponent = stepComponents[ state.currentStep ];
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -833,36 +870,58 @@ export default function DiscountCreatePage() {
                     />
 
                     <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                        <CurrentStepComponent
+                        <StepContent
                             state={state}
                             errors={errors}
                             groupConfig={groupConfig}
-                            busy={busy}
-                            showTargeting={groupConfig.supportsTargets}
                             shopCurrency={shopCurrency}
+                            busy={busy}
                         />
                     </div>
 
                     <StickyActionBar>
-                        <button
-                            type="button"
-                            disabled={state.currentStep === 0}
-                            onClick={() => state.setCurrentStep((s) => s - 1)}
-                            className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                        >
-                            Back
-                        </button>
-
-                        {state.currentStep < STEPS.length - 1 ? (
+                        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-between">
                             <button
                                 type="button"
-                                disabled={!state.canGoToStep(state.currentStep + 1)}
-                                onClick={() => state.setCurrentStep((s) => s + 1)}
-                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                                disabled={state.currentStep === 0}
+                                onClick={() => state.setCurrentStep((s) => s - 1)}
+                                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                             >
-                                Continue
+                                Back
                             </button>
-                        ) : null}
+
+                            {state.currentStep < STEPS.length - 1 ? (
+                                <button
+                                    type="button"
+                                    disabled={!state.canGoToStep(state.currentStep + 1)}
+                                    onClick={() => state.setCurrentStep((s) => s + 1)}
+                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                                >
+                                    Continue
+                                </button>
+                            ) : (
+                                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                                    <button
+                                        type="submit"
+                                        name="intent"
+                                        value="draft"
+                                        disabled={busy}
+                                        className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Save as draft
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        name="intent"
+                                        value="publish"
+                                        disabled={busy}
+                                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        Publish discount
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </StickyActionBar>
                 </Form>
             </div>

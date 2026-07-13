@@ -46,8 +46,11 @@ export async function loader({ request }) {
             planStatus: "TRIALING",
             trialDaysRemaining: 14,
             subscription: null,
+            isAdvanceLocked: process.env.NODE_ENV === "production",
         });
     }
+
+    const isAdvanceLocked = process.env.NODE_ENV === "production";
 
     return data({
         planName: shop.planName,
@@ -67,6 +70,7 @@ export async function loader({ request }) {
                     : null,
             }
             : null,
+        isAdvanceLocked,
     });
 }
 
@@ -100,6 +104,14 @@ export async function action({ request }) {
             targetPlan,
         });
         return data({ error: "Invalid plan" }, { status: 400 });
+    }
+
+    if (targetPlan === "ADVANCE" && process.env.NODE_ENV === "production") {
+        logger.warn("app.billing.action", "Blocked ADVANCE plan purchase in production", {
+            shop: session.shop,
+            targetPlan,
+        });
+        return data({ error: "Advance plan is not available yet." }, { status: 403 });
     }
 
     const shop = await prisma.shop.findUnique({
@@ -345,7 +357,7 @@ function BillingInfo({ subscription }) {
 }
 
 // ─── PlanCard ─────────────────────────────────────────────────────────────────
-function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
+function PlanCard({ planKey, currentPlanName, currentPlanStatus, isAdvanceLocked }) {
     const plan = PLANS[ planKey ];
     const fetcher = useFetcher();
     const isLoading = fetcher.state !== "idle";
@@ -353,6 +365,7 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
     const isCurrent = planKey === currentPlanName;
     const isFree = planKey === "FREE";
     const isAdvance = planKey === "ADVANCE";
+    const isComingSoon = isAdvance && isAdvanceLocked && !isCurrent;
 
     const isUpgrade =
         (currentPlanName === "FREE" && planKey !== "FREE") ||
@@ -422,6 +435,13 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
                 <div className="w-full text-center py-2.5 rounded-xl text-sm font-medium border bg-blue-50 text-blue-600 border-blue-200 cursor-default select-none">
                     {ctaLabel}
                 </div>
+            ) : isComingSoon ? (
+                <div
+                    className="w-full text-center py-2.5 rounded-xl text-sm font-medium border bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed select-none"
+                    aria-disabled="true"
+                >
+                    Coming soon
+                </div>
             ) : isFree ? (
                 <div className="w-full text-center py-2.5 rounded-xl text-sm font-medium border bg-gray-50 text-gray-400 border-gray-200 cursor-default select-none">
                     Default after trial
@@ -485,7 +505,7 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function BillingPage() {
-    const { planName, planStatus, trialDaysRemaining, subscription } = useLoaderData();
+    const { planName, planStatus, trialDaysRemaining, subscription, isAdvanceLocked } = useLoaderData();
     const actionData = useActionData();
 
     useEffect(() => {
@@ -533,6 +553,7 @@ export default function BillingPage() {
                             planKey={planKey}
                             currentPlanName={planName}
                             currentPlanStatus={planStatus}
+                            isAdvanceLocked={isAdvanceLocked}
                         />
                     ))}
                 </div>

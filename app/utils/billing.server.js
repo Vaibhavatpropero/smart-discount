@@ -161,7 +161,7 @@ export async function savePendingSubscriptionChange({
         }),
     ]);
 
-    invalidateAccessCache(shop);
+    invalidateAccessCache(shop.shopDomain);
 
     logger.info("billing.server", "Saved pending subscription change", {
         shopId,

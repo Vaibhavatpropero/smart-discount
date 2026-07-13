@@ -1,13 +1,79 @@
 // app/components/discount-wizard/useDiscountWizardState.js
 import { useEffect, useMemo, useState } from "react";
 
-export function useDiscountWizardState({ groupConfig, template, groupValue }) {
-    const [ title, setTitle ] = useState(
-        template?.name ? `${template.name} draft` : `${groupConfig.title} draft`
-    );
-    const [ description, setDescription ] = useState(template?.description || "");
-    const [ method, setMethod ] = useState(groupConfig.method || "AUTOMATIC");
-    const [ discountCode, setDiscountCode ] = useState("");
+export function useDiscountWizardState({
+    groupConfig,
+    template,
+    groupValue,
+    initialState = null,
+}) {
+    const getInitialTitle = () =>
+        initialState?.title ??
+        (template?.name ? `${template.name} draft` : `${groupConfig.title} draft`);
+
+    const getInitialDescription = () =>
+        initialState?.description ?? template?.description ?? "";
+
+    const getInitialMethod = () =>
+        initialState?.method ?? groupConfig.method ?? "AUTOMATIC";
+
+    const getInitialDiscountCode = () => initialState?.discountCode ?? "";
+    const getInitialIsPercentage = () => initialState?.isPercentage ?? true;
+    const getInitialDiscountValue = () => initialState?.discountValue ?? "";
+
+    const getInitialMinimumType = () => initialState?.minimumType ?? "NONE";
+    const getInitialMinimumSubtotal = () => initialState?.minimumSubtotal ?? "";
+    const getInitialMinimumQuantity = () => initialState?.minimumQuantity ?? "";
+    const getInitialUsageLimit = () => initialState?.usageLimit ?? "";
+    const getInitialAppliesOncePerCustomer = () =>
+        initialState?.appliesOncePerCustomer ?? false;
+    const getInitialCombineWithOrderDiscounts = () =>
+        initialState?.combineWithOrderDiscounts ?? false;
+    const getInitialCombineWithProductDiscounts = () =>
+        initialState?.combineWithProductDiscounts ?? false;
+    const getInitialCombineWithShippingDiscounts = () =>
+        initialState?.combineWithShippingDiscounts ?? false;
+
+    const getInitialScopeMode = () =>
+        initialState?.scopeMode ?? (groupValue === "product" ? "ALL" : "ENTIRE_ORDER");
+    const getInitialTargetProducts = () => initialState?.targetProducts ?? [];
+    const getInitialTargetCollections = () => initialState?.targetCollections ?? [];
+
+    const getInitialBxgyBuyRequirementType = () =>
+        initialState?.bxgyBuyRequirementType ?? "QUANTITY";
+    const getInitialBxgyBuyQuantity = () => initialState?.bxgyBuyQuantity ?? "";
+    const getInitialBxgyBuyAmount = () => initialState?.bxgyBuyAmount ?? "";
+    const getInitialBxgyBuyTargetType = () =>
+        initialState?.bxgyBuyTargetType ?? "PRODUCTS";
+    const getInitialBxgyBuyProducts = () => initialState?.bxgyBuyProducts ?? [];
+    const getInitialBxgyBuyCollections = () => initialState?.bxgyBuyCollections ?? [];
+
+    const getInitialBxgyGetQuantity = () => initialState?.bxgyGetQuantity ?? "1";
+    const getInitialBxgyGetEffect = () => initialState?.bxgyGetEffect ?? "FREE";
+    const getInitialBxgyGetPercentage = () => initialState?.bxgyGetPercentage ?? "";
+    const getInitialBxgyGetAmount = () => initialState?.bxgyGetAmount ?? "";
+    const getInitialBxgyGetTargetType = () =>
+        initialState?.bxgyGetTargetType ?? "PRODUCTS";
+    const getInitialBxgyGetProducts = () => initialState?.bxgyGetProducts ?? [];
+    const getInitialBxgyGetCollections = () => initialState?.bxgyGetCollections ?? [];
+    const getInitialBxgyUsesPerOrderLimit = () =>
+        initialState?.bxgyUsesPerOrderLimit ?? "";
+
+    const getInitialShippingDestinationMode = () =>
+        initialState?.shippingDestinationMode ?? "ALL";
+    const getInitialShippingDestinationCountries = () =>
+        initialState?.shippingDestinationCountries ?? [];
+    const getInitialMaximumShippingPrice = () =>
+        initialState?.maximumShippingPrice ?? "";
+
+    const getInitialStartsAt = () => initialState?.startsAt ?? "";
+    const getInitialEndsAt = () => initialState?.endsAt ?? "";
+    const getInitialCurrentStep = () => initialState?.currentStep ?? 0;
+
+    const [ title, setTitle ] = useState(getInitialTitle);
+    const [ description, setDescription ] = useState(getInitialDescription);
+    const [ method, setMethod ] = useState(getInitialMethod);
+    const [ discountCode, setDiscountCode ] = useState(getInitialDiscountCode);
 
     useEffect(() => {
         const fallbackMethod = groupConfig.method || "AUTOMATIC";
@@ -25,52 +91,81 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         }
     }, [ groupConfig, method, discountCode ]);
 
-    const [ isPercentage, setIsPercentage ] = useState(true);
-    const [ discountValue, setDiscountValue ] = useState("");
+    const [ isPercentage, setIsPercentage ] = useState(getInitialIsPercentage);
+    const [ discountValue, setDiscountValue ] = useState(getInitialDiscountValue);
 
-    const [ minimumType, setMinimumType ] = useState("NONE");
-    const [ minimumSubtotal, setMinimumSubtotal ] = useState("");
-    const [ minimumQuantity, setMinimumQuantity ] = useState("");
-    const [ usageLimit, setUsageLimit ] = useState("");
-    const [ appliesOncePerCustomer, setAppliesOncePerCustomer ] = useState(false);
-    const [ combineWithOrderDiscounts, setCombineWithOrderDiscounts ] = useState(false);
-    const [ combineWithProductDiscounts, setCombineWithProductDiscounts ] = useState(false);
-    const [ combineWithShippingDiscounts, setCombineWithShippingDiscounts ] = useState(false);
-
-    const [ scopeMode, setScopeMode ] = useState(
-        groupValue === "product" ? "ALL" : "ENTIRE_ORDER"
+    const [ minimumType, setMinimumType ] = useState(getInitialMinimumType);
+    const [ minimumSubtotal, setMinimumSubtotal ] = useState(getInitialMinimumSubtotal);
+    const [ minimumQuantity, setMinimumQuantity ] = useState(getInitialMinimumQuantity);
+    const [ usageLimit, setUsageLimit ] = useState(getInitialUsageLimit);
+    const [ appliesOncePerCustomer, setAppliesOncePerCustomer ] = useState(
+        getInitialAppliesOncePerCustomer
     );
-    const [ targetProducts, setTargetProducts ] = useState([]);
-    const [ targetCollections, setTargetCollections ] = useState([]);
+    const [ combineWithOrderDiscounts, setCombineWithOrderDiscounts ] = useState(
+        getInitialCombineWithOrderDiscounts
+    );
+    const [ combineWithProductDiscounts, setCombineWithProductDiscounts ] = useState(
+        getInitialCombineWithProductDiscounts
+    );
+    const [ combineWithShippingDiscounts, setCombineWithShippingDiscounts ] = useState(
+        getInitialCombineWithShippingDiscounts
+    );
 
-    const [ bxgyBuyRequirementType, setBxgyBuyRequirementType ] = useState("QUANTITY");
-    const [ bxgyBuyQuantity, setBxgyBuyQuantity ] = useState("");
-    const [ bxgyBuyAmount, setBxgyBuyAmount ] = useState("");
-    const [ bxgyBuyTargetType, setBxgyBuyTargetType ] = useState("PRODUCTS");
-    const [ bxgyBuyProducts, setBxgyBuyProducts ] = useState([]);
-    const [ bxgyBuyCollections, setBxgyBuyCollections ] = useState([]);
+    const [ scopeMode, setScopeMode ] = useState(getInitialScopeMode);
+    const [ targetProducts, setTargetProducts ] = useState(getInitialTargetProducts);
+    const [ targetCollections, setTargetCollections ] = useState(
+        getInitialTargetCollections
+    );
 
-    const [ bxgyGetQuantity, setBxgyGetQuantity ] = useState("1");
-    const [ bxgyGetEffect, setBxgyGetEffect ] = useState("FREE");
-    const [ bxgyGetPercentage, setBxgyGetPercentage ] = useState("");
-    const [ bxgyGetAmount, setBxgyGetAmount ] = useState("");
-    const [ bxgyGetTargetType, setBxgyGetTargetType ] = useState("PRODUCTS");
-    const [ bxgyGetProducts, setBxgyGetProducts ] = useState([]);
-    const [ bxgyGetCollections, setBxgyGetCollections ] = useState([]);
-    const [ bxgyUsesPerOrderLimit, setBxgyUsesPerOrderLimit ] = useState("");
+    const [ bxgyBuyRequirementType, setBxgyBuyRequirementType ] = useState(
+        getInitialBxgyBuyRequirementType
+    );
+    const [ bxgyBuyQuantity, setBxgyBuyQuantity ] = useState(getInitialBxgyBuyQuantity);
+    const [ bxgyBuyAmount, setBxgyBuyAmount ] = useState(getInitialBxgyBuyAmount);
+    const [ bxgyBuyTargetType, setBxgyBuyTargetType ] = useState(
+        getInitialBxgyBuyTargetType
+    );
+    const [ bxgyBuyProducts, setBxgyBuyProducts ] = useState(getInitialBxgyBuyProducts);
+    const [ bxgyBuyCollections, setBxgyBuyCollections ] = useState(
+        getInitialBxgyBuyCollections
+    );
 
-    const [ shippingDestinationMode, setShippingDestinationMode ] = useState("ALL");
-    const [ shippingDestinationCountries, setShippingDestinationCountries ] = useState([]);
-    const [ maximumShippingPrice, setMaximumShippingPrice ] = useState("");
+    const [ bxgyGetQuantity, setBxgyGetQuantity ] = useState(getInitialBxgyGetQuantity);
+    const [ bxgyGetEffect, setBxgyGetEffect ] = useState(getInitialBxgyGetEffect);
+    const [ bxgyGetPercentage, setBxgyGetPercentage ] = useState(
+        getInitialBxgyGetPercentage
+    );
+    const [ bxgyGetAmount, setBxgyGetAmount ] = useState(getInitialBxgyGetAmount);
+    const [ bxgyGetTargetType, setBxgyGetTargetType ] = useState(
+        getInitialBxgyGetTargetType
+    );
+    const [ bxgyGetProducts, setBxgyGetProducts ] = useState(getInitialBxgyGetProducts);
+    const [ bxgyGetCollections, setBxgyGetCollections ] = useState(
+        getInitialBxgyGetCollections
+    );
+    const [ bxgyUsesPerOrderLimit, setBxgyUsesPerOrderLimit ] = useState(
+        getInitialBxgyUsesPerOrderLimit
+    );
 
-    const [ startsAt, setStartsAt ] = useState("");
-    const [ endsAt, setEndsAt ] = useState("");
+    const [ shippingDestinationMode, setShippingDestinationMode ] = useState(
+        getInitialShippingDestinationMode
+    );
+    const [ shippingDestinationCountries, setShippingDestinationCountries ] = useState(
+        getInitialShippingDestinationCountries
+    );
+    const [ maximumShippingPrice, setMaximumShippingPrice ] = useState(
+        getInitialMaximumShippingPrice
+    );
 
-    const [ currentStep, setCurrentStep ] = useState(0);
+    const [ startsAt, setStartsAt ] = useState(getInitialStartsAt);
+    const [ endsAt, setEndsAt ] = useState(getInitialEndsAt);
+
+    const [ currentStep, setCurrentStep ] = useState(getInitialCurrentStep);
 
     const validation = useMemo(() => {
         const basicsValid =
-            title.trim().length > 0 && (method !== "CODE" || discountCode.trim().length > 0);
+            title.trim().length > 0 &&
+            (method !== "CODE" || discountCode.trim().length > 0);
 
         const defaultValueValid =
             discountValue !== "" &&
@@ -80,11 +175,14 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         const bxgyBuyRequirementValid =
             bxgyBuyRequirementType === "QUANTITY"
-                ? Number.isInteger(Number(bxgyBuyQuantity)) && Number(bxgyBuyQuantity) > 0
-                : Number.isFinite(Number(bxgyBuyAmount)) && Number(bxgyBuyAmount) > 0;
+                ? Number.isInteger(Number(bxgyBuyQuantity)) &&
+                Number(bxgyBuyQuantity) > 0
+                : Number.isFinite(Number(bxgyBuyAmount)) &&
+                Number(bxgyBuyAmount) > 0;
 
         const bxgyGetQuantityValid =
-            Number.isInteger(Number(bxgyGetQuantity)) && Number(bxgyGetQuantity) > 0;
+            Number.isInteger(Number(bxgyGetQuantity)) &&
+            Number(bxgyGetQuantity) > 0;
 
         const bxgyGetEffectValid =
             bxgyGetEffect === "FREE" ||
@@ -109,7 +207,9 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         const valueValid =
             groupValue === "bxgy"
-                ? bxgyBuyRequirementValid && bxgyGetQuantityValid && bxgyGetEffectValid
+                ? bxgyBuyRequirementValid &&
+                bxgyGetQuantityValid &&
+                bxgyGetEffectValid
                 : groupValue === "shipping"
                     ? shippingCountriesValid && maximumShippingPriceValid
                     : defaultValueValid;
@@ -121,11 +221,13 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         const bxgyBuyTargetsValid =
             (bxgyBuyTargetType === "PRODUCTS" && bxgyBuyProducts.length > 0) ||
-            (bxgyBuyTargetType === "COLLECTIONS" && bxgyBuyCollections.length > 0);
+            (bxgyBuyTargetType === "COLLECTIONS" &&
+                bxgyBuyCollections.length > 0);
 
         const bxgyGetTargetsValid =
             (bxgyGetTargetType === "PRODUCTS" && bxgyGetProducts.length > 0) ||
-            (bxgyGetTargetType === "COLLECTIONS" && bxgyGetCollections.length > 0);
+            (bxgyGetTargetType === "COLLECTIONS" &&
+                bxgyGetCollections.length > 0);
 
         const bxgyUsesPerOrderLimitValid =
             bxgyUsesPerOrderLimit === "" ||
@@ -139,7 +241,8 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
                 bxgyUsesPerOrderLimitValid
                 : defaultConditionsValid;
 
-        const scheduleValid = !endsAt || !startsAt || new Date(endsAt) > new Date(startsAt);
+        const scheduleValid =
+            !endsAt || !startsAt || new Date(endsAt) > new Date(startsAt);
 
         return {
             basicsValid,
@@ -199,13 +302,22 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
                 groupValue !== "product" ||
                 scopeMode === "ALL" ||
                 (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length > 0) ||
-                (scopeMode === "SPECIFIC_COLLECTIONS" && targetCollections.length > 0);
+                (scopeMode === "SPECIFIC_COLLECTIONS" &&
+                    targetCollections.length > 0);
 
-            return validation.basicsValid && validation.valueValid && targetingValid;
+            return (
+                validation.basicsValid &&
+                validation.valueValid &&
+                targetingValid
+            );
         }
 
         if (stepIndex === 3) {
-            return validation.basicsValid && validation.valueValid && validation.conditionsValid;
+            return (
+                validation.basicsValid &&
+                validation.valueValid &&
+                validation.conditionsValid
+            );
         }
 
         if (stepIndex === 4) {
@@ -225,8 +337,10 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         description, setDescription,
         method, setMethod,
         discountCode, setDiscountCode,
+
         isPercentage, setIsPercentage,
         discountValue, setDiscountValue,
+
         minimumType, setMinimumType,
         minimumSubtotal, setMinimumSubtotal,
         minimumQuantity, setMinimumQuantity,
@@ -235,6 +349,7 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         combineWithOrderDiscounts, setCombineWithOrderDiscounts,
         combineWithProductDiscounts, setCombineWithProductDiscounts,
         combineWithShippingDiscounts, setCombineWithShippingDiscounts,
+
         scopeMode, setScopeMode,
         targetProducts, setTargetProducts,
         targetCollections, setTargetCollections,
@@ -245,6 +360,7 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
         bxgyBuyTargetType, setBxgyBuyTargetType,
         bxgyBuyProducts, setBxgyBuyProducts,
         bxgyBuyCollections, setBxgyBuyCollections,
+
         bxgyGetQuantity, setBxgyGetQuantity,
         bxgyGetEffect, setBxgyGetEffect,
         bxgyGetPercentage, setBxgyGetPercentage,
@@ -260,6 +376,7 @@ export function useDiscountWizardState({ groupConfig, template, groupValue }) {
 
         startsAt, setStartsAt,
         endsAt, setEndsAt,
+
         currentStep, setCurrentStep,
         validation,
         canGoToStep,

@@ -42,7 +42,7 @@ function formatShippingSummary(state, symbol) {
     return `Free shipping for ${destinationPart} · ${maxRatePart}`;
 }
 
-export default function ReviewStep({ state, groupConfig, busy, shopCurrency }) {
+export default function ReviewStep({ state, groupConfig, shopCurrency }) {
     const symbol = getCurrencySymbol(shopCurrency);
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
@@ -120,27 +120,6 @@ export default function ReviewStep({ state, groupConfig, busy, shopCurrency }) {
                         </div>
                     ))}
                 </dl>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <button
-                    type="submit"
-                    name="intent"
-                    value="draft"
-                    disabled={busy}
-                    className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                    Save as draft
-                </button>
-                <button
-                    type="submit"
-                    name="intent"
-                    value="publish"
-                    disabled={busy}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                    Publish discount
-                </button>
             </div>
         </div>
     );
