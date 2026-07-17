@@ -95,17 +95,17 @@ export const loader = async ({ request }) => {
 function StatusBadge({ access, trialDaysRemaining }) {
   if (access.isTrialing) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-        Trial · {trialDaysRemaining}d left
+      <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-blue-600 ring-4 ring-blue-100/70" />
+        Trial · {trialDaysRemaining}d remaining
       </span>
     );
   }
 
   if (access.isExpired) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+      <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500 ring-4 ring-red-100/70" />
         Trial expired
       </span>
     );
@@ -113,17 +113,17 @@ function StatusBadge({ access, trialDaysRemaining }) {
 
   if (access.isAdvance) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-        Advance
+      <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-orange-500 ring-4 ring-orange-100/70" />
+        Advance plan
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-      Basic
+    <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+      <span className="h-1.5 w-1.5 rounded-full bg-blue-600 ring-4 ring-blue-100/70" />
+      Basic plan
     </span>
   );
 }
@@ -131,14 +131,20 @@ function StatusBadge({ access, trialDaysRemaining }) {
 function AlertBanner({ access, trialDaysRemaining }) {
   if (access.isExpired) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-        <p className="text-sm font-semibold text-red-800">Your free trial has ended</p>
-        <p className="mt-1 text-sm text-red-700">
-          Discounts are now read-only in the app. Upgrade to create or edit campaigns again.
-        </p>
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm font-semibold text-red-900">
+            Your free trial has ended
+          </p>
+
+          <p className="mt-1 text-sm leading-6 text-red-700">
+            Your discounts are now read-only. Upgrade to resume creating and editing campaigns.
+          </p>
+        </div>
+
         <Link
           to="/app/billing?reason=trial_expired"
-          className="mt-3 inline-flex rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
         >
           Upgrade plan
         </Link>
@@ -148,13 +154,24 @@ function AlertBanner({ access, trialDaysRemaining }) {
 
   if (access.isTrialing) {
     return (
-      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-        <p className="text-sm font-semibold text-blue-800">
-          You are on a free trial with {trialDaysRemaining} day{trialDaysRemaining === 1 ? "" : "s"} remaining
-        </p>
-        <p className="mt-1 text-sm text-blue-700">
-          You can run up to 3 active discounts during trial. Upgrade any time to remove limits.
-        </p>
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm font-semibold text-blue-900">
+            Your free trial has {trialDaysRemaining} day
+            {trialDaysRemaining === 1 ? "" : "s"} remaining
+          </p>
+
+          <p className="mt-1 text-sm leading-6 text-blue-700">
+            You can run up to 3 active discounts during your trial. Upgrade anytime to remove plan limits.
+          </p>
+        </div>
+
+        <Link
+          to="/app/billing"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          View plans
+        </Link>
       </div>
     );
   }
@@ -163,17 +180,29 @@ function AlertBanner({ access, trialDaysRemaining }) {
 }
 
 function StatCard({ label, value, tone = "default" }) {
-  const toneClass =
+  const valueClass =
     tone === "orange"
-      ? "text-orange-600"
+      ? "text-orange-700"
       : tone === "red"
-        ? "text-red-600"
-        : "text-gray-900";
+        ? "text-red-700"
+        : "text-slate-950";
+
+  const accentClass =
+    tone === "orange"
+      ? "bg-orange-500"
+      : tone === "red"
+        ? "bg-red-500"
+        : "bg-blue-600";
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_24px_rgba(37,99,235,0.12)]">
+      <span className={`absolute inset-x-0 top-0 h-1 ${accentClass}`} />
+
+      <p className="text-sm font-medium text-slate-500">{label}</p>
+
+      <p className={`mt-3 text-3xl font-semibold tracking-tight ${valueClass}`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -181,23 +210,26 @@ function StatCard({ label, value, tone = "default" }) {
 function DiscountStatusPill({ status, lockedByPlan }) {
   if (lockedByPlan) {
     return (
-      <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">
-        Locked
+      <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
+        Locked by plan
       </span>
     );
   }
 
   const map = {
     ACTIVE: "border-green-200 bg-green-50 text-green-700",
-    DRAFT: "border-gray-200 bg-gray-50 text-gray-700",
+    DRAFT: "border-slate-200 bg-slate-50 text-slate-600",
     SCHEDULED: "border-blue-200 bg-blue-50 text-blue-700",
-    EXPIRED: "border-gray-200 bg-gray-100 text-gray-600",
-    DISABLED: "border-gray-200 bg-gray-100 text-gray-600",
+    EXPIRED: "border-slate-200 bg-slate-100 text-slate-600",
+    DISABLED: "border-slate-200 bg-slate-100 text-slate-600",
     FAILED: "border-red-200 bg-red-50 text-red-700",
   };
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${map[ status ] || "border-gray-200 bg-gray-50 text-gray-700"}`}>
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${map[ status ] || "border-slate-200 bg-slate-50 text-slate-600"
+        }`}
+    >
       {status}
     </span>
   );
@@ -214,7 +246,7 @@ export default function Index() {
   } = useLoaderData();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F7F7F5]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -265,7 +297,7 @@ export default function Index() {
           />
         </div>
 
-        <section className="rounded-2xl mt-5 border border-gray-200 bg-white shadow-sm">
+        <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Recent discounts</h2>

@@ -19,7 +19,7 @@ function formatDate(value) {
 function UsageStatusPill({ usage }) {
     if (usage.cancelled) {
         return (
-            <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+            <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
                 Cancelled
             </span>
         );
@@ -27,14 +27,14 @@ function UsageStatusPill({ usage }) {
 
     if (usage.refunded) {
         return (
-            <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">
+            <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
                 Refunded
             </span>
         );
     }
 
     return (
-        <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+        <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
             Completed
         </span>
     );
@@ -46,74 +46,78 @@ export function RecentRedemptionsTable({
     fallbackCurrency,
 }) {
     return (
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-5 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
+            <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50/50 px-5 py-4">
+                <h3 className="text-base font-semibold text-slate-950">
                     Recent redemptions
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+
+                <p className="text-sm text-slate-500">
                     {mode === "DISCOUNT"
-                        ? "Latest orders that applied this discount."
-                        : "Latest orders that applied one of your app-managed discounts."}
+                        ? "Latest orders that applied this campaign."
+                        : "Latest orders that applied one of your app-managed campaigns."}
                 </p>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="min-w-[760px] w-full">
-                    <thead>
-                        <tr className="border-b border-gray-100 text-left">
-                            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <thead className="bg-slate-50/80">
+                        <tr className="text-left">
+                            <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                 Order
                             </th>
 
                             {mode === "OVERALL" ? (
-                                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                    Discount
+                                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Campaign
                                 </th>
                             ) : null}
 
-                            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                 Savings
                             </th>
 
-                            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                 Order total
                             </th>
 
-                            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                 Status
                             </th>
 
-                            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                 Date
                             </th>
                         </tr>
                     </thead>
 
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                         {recentUsages.map((usage) => {
                             const currency = usage.currency || fallbackCurrency;
 
                             return (
                                 <tr
                                     key={usage.id}
-                                    className="border-b border-gray-100 last:border-none"
+                                    className="transition-colors hover:bg-blue-50/40"
                                 >
-                                    <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                                    <td className="px-5 py-4 text-sm font-semibold text-slate-900">
                                         {usage.orderName || "Unnamed order"}
                                     </td>
 
                                     {mode === "OVERALL" ? (
-                                        <td className="px-5 py-4 text-sm text-gray-600">
+                                        <td
+                                            className="max-w-[220px] truncate px-5 py-4 text-sm text-slate-600"
+                                            title={usage.discount?.title || "Unknown discount"}
+                                        >
                                             {usage.discount?.title || "Unknown discount"}
                                         </td>
                                     ) : null}
 
-                                    <td className="px-5 py-4 text-sm text-gray-700">
+                                    <td className="px-5 py-4 text-sm font-medium text-slate-700">
                                         {formatMoney(usage.discountAmount, currency)}
                                     </td>
 
-                                    <td className="px-5 py-4 text-sm text-gray-700">
+                                    <td className="px-5 py-4 text-sm text-slate-700">
                                         {formatMoney(usage.orderTotal, currency)}
                                     </td>
 
@@ -121,7 +125,7 @@ export function RecentRedemptionsTable({
                                         <UsageStatusPill usage={usage} />
                                     </td>
 
-                                    <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-500">
+                                    <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-500">
                                         {formatDate(usage.createdAt)}
                                     </td>
                                 </tr>
