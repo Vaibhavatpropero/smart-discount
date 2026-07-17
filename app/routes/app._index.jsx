@@ -3,6 +3,8 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { data, Link, useLoaderData } from "react-router";
 import prisma from "../db.server";
 import { getPlanContext, getDiscountAccessState } from "../utils/plan-gate.server";
+import { getAnalyticsDashboard } from "../utils/discount-analytics.server";
+import { AnalyticsSection } from "../components/analytics";
 import { RouteErrorFallback } from "../components";
 
 export const loader = async ({ request }) => {
@@ -14,7 +16,14 @@ export const loader = async ({ request }) => {
 
   const { shop, access, trialDaysRemaining } = await getPlanContext(request);
 
-  const [ totalDiscounts, activeDiscounts, recentDiscountsRaw ] = await Promise.all([
+  const selectedDiscountId = url.searchParams.get("discountId");
+
+  const [
+    totalDiscounts,
+    activeDiscounts,
+    recentDiscountsRaw,
+    analytics,
+  ] = await Promise.all([
     prisma.discount.count({
       where: { shopId: shop.id },
     }),
@@ -38,6 +47,11 @@ export const loader = async ({ request }) => {
         customerSegments: true,
         shippingDestinationCountries: true,
       },
+    }),
+    getAnalyticsDashboard({
+      shopId: shop.id,
+      selectedDiscountId: selectedDiscountId || null,
+      recentLimit: 10,
     }),
   ]);
 
@@ -64,6 +78,7 @@ export const loader = async ({ request }) => {
       shopDomain: shop.shopDomain,
       planName: shop.planName,
       planStatus: shop.planStatus,
+      currency: shop.currency || "USD",
     },
     access,
     trialDaysRemaining,
@@ -73,6 +88,7 @@ export const loader = async ({ request }) => {
       lockedDiscounts,
     },
     recentDiscounts,
+    analytics,
   });
 };
 
@@ -188,7 +204,14 @@ function DiscountStatusPill({ status, lockedByPlan }) {
 }
 
 export default function Index() {
-  const { shop, access, trialDaysRemaining, stats, recentDiscounts } = useLoaderData();
+  const {
+    shop,
+    access,
+    trialDaysRemaining,
+    stats,
+    recentDiscounts,
+    analytics,
+  } = useLoaderData();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -200,7 +223,7 @@ export default function Index() {
               <StatusBadge access={access} trialDaysRemaining={trialDaysRemaining} />
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              Monitor your discount activity and manage plan access from one place.
+              Monitor your discount activity.
             </p>
           </div>
 
@@ -234,105 +257,67 @@ export default function Index() {
           <StatCard label="Locked by plan" value={stats.lockedDiscounts} tone="orange" />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">Recent discounts</h2>
-                <p className="mt-1 text-sm text-gray-500">Latest campaigns in your store.</p>
-              </div>
-              <Link
-                to="/app/discounts"
-                className="text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                View all
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto">
-              {recentDiscounts.length === 0 ? (
-                <div className="px-5 py-10 text-center">
-                  <p className="text-sm font-medium text-gray-900">No discounts yet</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Create your first campaign to start driving conversions.
-                  </p>
-                </div>
-              ) : (
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-left">
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Title</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Type</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Status</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentDiscounts.map((discount) => (
-                      <tr key={discount.id} className="border-b border-gray-100 last:border-none">
-                        <td className="px-5 py-4 text-sm font-medium text-gray-900">{discount.title}</td>
-                        <td className="px-5 py-4 text-sm text-gray-500">{discount.discountType}</td>
-                        <td className="px-5 py-4">
-                          <DiscountStatusPill
-                            status={discount.status}
-                            lockedByPlan={discount.lockedByPlan}
-                          />
-                        </td>
-                        <td className="px-5 py-4 text-sm text-gray-500">
-                          {new Date(discount.updatedAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900">Current plan access</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Your current plan controls discount limits and advanced capabilities.
-            </p>
-
-            <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{shop.planName}</p>
-                  <p className="text-xs text-gray-500">{shop.planStatus}</p>
-                </div>
-                <StatusBadge access={access} trialDaysRemaining={trialDaysRemaining} />
-              </div>
-
-              <ul className="mt-4 space-y-2">
-                {access.limitations.map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-sm text-gray-600">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <Link
-                to="/app/billing"
-                className="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Manage subscription
-              </Link>
-
-              {!access.isAdvance && (
-                <Link
-                  to="/app/billing"
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-100"
-                >
-                  Unlock Advance features
-                </Link>
-              )}
-            </div>
-          </section>
+        {/* Analytics: overall by default, per-discount via ?discountId= */}
+        <div className="mt-6">
+          <AnalyticsSection
+            analytics={analytics}
+            currency={shop.currency}
+          />
         </div>
+
+        <section className="rounded-2xl mt-5 border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Recent discounts</h2>
+              <p className="mt-1 text-sm text-gray-500">Latest campaigns in your store.</p>
+            </div>
+            <Link
+              to="/app/discounts"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              View all
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            {recentDiscounts.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm font-medium text-gray-900">No discounts yet</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Create your first campaign to start driving conversions.
+                </p>
+              </div>
+            ) : (
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left">
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Title</th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Type</th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentDiscounts.map((discount) => (
+                    <tr key={discount.id} className="border-b border-gray-100 last:border-none">
+                      <td className="px-5 py-4 text-sm font-medium text-gray-900">{discount.title}</td>
+                      <td className="px-5 py-4 text-sm text-gray-500">{discount.discountType}</td>
+                      <td className="px-5 py-4">
+                        <DiscountStatusPill
+                          status={discount.status}
+                          lockedByPlan={discount.lockedByPlan}
+                        />
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-500">
+                        {new Date(discount.updatedAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

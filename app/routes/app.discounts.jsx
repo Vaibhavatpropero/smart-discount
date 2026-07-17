@@ -454,7 +454,7 @@ export default function DiscountsPage() {
                             <PlanBadge access={access} trialDaysRemaining={trialDaysRemaining} />
                         </div>
                         <p className="mt-1 text-sm text-gray-500">
-                            Create, monitor, and manage discount campaigns for your store.
+                            Create and manage discount campaigns for your store.
                         </p>
                     </div>
 
@@ -521,7 +521,8 @@ export default function DiscountsPage() {
                     </div>
                 </section>
 
-                <section className="mt-8">
+                {/* Templates - Not implemented */}
+                {/* <section className="mt-8">
                     <div className="mb-4 flex items-end justify-between gap-3">
                         <div>
                             <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
@@ -550,7 +551,7 @@ export default function DiscountsPage() {
                             ))
                         )}
                     </div>
-                </section>
+                </section> */}
 
                 <section className="mt-8 rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
