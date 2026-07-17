@@ -466,7 +466,11 @@ export default function DiscountsPage() {
                             Manage plan
                         </Link>
                         <Link
-                            to={access.canOpenCreateDiscount ? "/app/discounts/new" : "/app/billing?reason=trial_expired"}
+                            to={
+                                access.canOpenCreateDiscount
+                                    ? "/app/discounts-new?group=order"
+                                    : "/app/billing?reason=trial_expired"
+                            }
                             className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white ${access.canOpenCreateDiscount ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
                                 }`}
                         >

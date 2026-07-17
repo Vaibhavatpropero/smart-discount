@@ -17,6 +17,10 @@ import {
     canUseTemplate,
     requireCreateDiscountAccess,
 } from "../utils/plan-gate.server.js";
+import {
+    resolveDiscountIdentityForSave,
+    computeIsMatchable,
+} from "../utils/discount-identity.server.js";
 import { authenticate } from "../shopify.server.js";
 import BasicsStep from "../components/discount-wizard/steps/BasicsStep.jsx";
 import ValueStep from "../components/discount-wizard/steps/ValueStep.jsx";
@@ -26,6 +30,10 @@ import ReviewStep from "../components/discount-wizard/steps/ReviewStep.jsx";
 import { StepProgress, StickyActionBar, STEPS } from "../components/discount-wizard/WizardShell.jsx";
 import { useDiscountWizardState } from "../components/discount-wizard/useDiscountWizardState.js";
 import { RouteErrorFallback } from "../components";
+import { logger } from "../utils/logger.server.js";
+import { useEffect } from "react";
+
+const SRC = "discounts-new";
 
 const GROUP_CONFIG = {
     order: {
@@ -93,6 +101,34 @@ const GROUP_CONFIG = {
         supportsTargets: false,
         supportsValueTypeToggle: false,
     },
+};
+
+const ERROR_STEP_BY_FIELD = {
+    title: 0,
+    discountCode: 0,
+
+    discountValue: 1,
+
+    targetProducts: 2,
+    targetCollections: 2,
+    minimumSubtotal: 2,
+    minimumQuantity: 2,
+    shippingDestinationCountries: 2,
+    maximumShippingPrice: 2,
+    bxgyBuyQuantity: 2,
+    bxgyBuyAmount: 2,
+    bxgyBuyProducts: 2,
+    bxgyBuyCollections: 2,
+    bxgyGetQuantity: 2,
+    bxgyGetPercentage: 2,
+    bxgyGetAmount: 2,
+    bxgyGetProducts: 2,
+    bxgyGetCollections: 2,
+    bxgyUsesPerOrderLimit: 2,
+
+    startsAt: 3,
+    endsAt: 3,
+    usageLimit: 3,
 };
 
 function getGroupConfig(group) {
@@ -295,7 +331,7 @@ function buildDraftPayload({ shopId, formData, access, template }) {
 }
 
 export const loader = async ({ request }) => {
-    const admin = await authenticate.admin(request);
+    const { admin } = await authenticate.admin(request);
     const { shop, access, trialDaysRemaining } = await requireCreateDiscountAccess(request);
 
     const url = new URL(request.url);
@@ -325,11 +361,11 @@ export const loader = async ({ request }) => {
     }
 
     if (templateSlug && (!template || !canUseTemplate(access, template))) {
-        throw redirect("app/billing?reason=templatelocked", { target: "parent" });
+        throw redirect("/app/billing?reason=templatelocked");
     }
 
     if (!canUseDiscountType(access, groupConfig.discountType)) {
-        throw redirect("app/billing?reason=planlocked", { target: "parent" });
+        throw redirect("/app/billing?reason=planlocked");
     }
 
     return data({
@@ -348,321 +384,579 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-    const { admin } = await authenticate.admin(request);
-    const context = await requireCreateDiscountAccess(request);
-    const { shop, access } = context;
-
-    const formData = await request.formData();
-    const intent = String(formData.get("intent") || "draft");
-    const group = String(formData.get("group") || "order").toLowerCase();
-    const templateSlug = String(formData.get("templateSlug") || "").trim() || null;
-    const groupConfig = getGroupConfig(group);
-
-    const template = templateSlug
-        ? await prisma.discountTemplate.findUnique({ where: { slug: templateSlug } })
-        : null;
-
-    if (templateSlug && (!template || !canUseTemplate(access, template))) {
-        return data(
-            { errors: { form: "This template requires a higher plan." } },
-            { status: 403 }
-        );
-    }
-
-    if (!canUseDiscountType(access, groupConfig.discountType)) {
-        return data(
-            { errors: { form: "This discount type requires a higher plan." } },
-            { status: 403 }
-        );
-    }
-
-    if (intent === "publish") {
-        const activeDiscountCount = await prisma.discount.count({
-            where: {
-                shopId: shop.id,
-                status: { in: [ "ACTIVE", "SCHEDULED" ] },
-            },
-        });
-
-        await assertCanCreateDiscount(
-            request,
-            activeDiscountCount,
-            groupConfig.discountType,
-            template
-        );
-    }
+    let shopId = null;
+    let discountId = null;
 
     try {
-        assertAdvancedFeatureAccess(access, group, formData);
-    } catch (err) {
-        return data({ errors: { form: err.message } }, { status: 403 });
-    }
+        logger.info(SRC, "Create action entered", {
+            requestMethod: request.method,
+            requestUrl: request.url,
+        });
 
-    const title = String(formData.get("title") || "").trim();
-    const method = String(formData.get("method") || groupConfig.method);
-    if (!groupConfig.supportedMethods.includes(method)) {
-        return data(
-            {
-                errors: {
-                    form: `${groupConfig.title} currently supports ${groupConfig.supportedMethods
-                        .map((item) => item.toLowerCase())
-                        .join(" or ")} method only.`,
-                },
-            },
-            { status: 400 }
-        );
-    }
+        logger.info(SRC, "Authenticating admin");
+        const { admin } = await authenticate.admin(request);
+        logger.info(SRC, "Admin authenticated");
 
-    const discountCode = String(formData.get("discountCode") || "").trim();
+        logger.info(SRC, "Resolving create-discount access");
+        const context = await requireCreateDiscountAccess(request);
+        const { shop, access } = context;
+        shopId = shop.id;
 
-    const discountValueRaw = formData.get("discountValue");
-    const discountValue =
-        discountValueRaw === "" || discountValueRaw == null ? null : Number(discountValueRaw);
+        logger.info(SRC, "Create-discount access resolved", {
+            shopId,
+            planName: access.planName,
+        });
 
-    const scopeMode = String(formData.get("scopeMode") || "");
-    const targetProducts = parseJsonArray(formData.get("targetProducts"));
-    const targetCollections = parseJsonArray(formData.get("targetCollections"));
+        logger.info(SRC, "Parsing request form data");
+        const formData = await request.formData();
 
-    if (group === "product") {
-        if (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length === 0) {
+        logger.info(SRC, "Request form parsed", {
+            shopId,
+            intent: formData.get("intent") || null,
+            group: formData.get("group") || null,
+            method: formData.get("method") || null,
+            hasTitle: Boolean(formData.get("title")),
+            hasDiscountCode: Boolean(formData.get("discountCode")),
+        });
+
+        const intent = String(formData.get("intent") || "draft");
+        const group = String(formData.get("group") || "order").toLowerCase();
+        const templateSlug =
+            String(formData.get("templateSlug") || "").trim() || null;
+        const groupConfig = getGroupConfig(group);
+
+        const template = templateSlug
+            ? await prisma.discountTemplate.findUnique({
+                where: { slug: templateSlug },
+            })
+            : null;
+
+        if (templateSlug && (!template || !canUseTemplate(access, template))) {
             return data(
-                { errors: { targetProducts: "Add at least one product target." } },
-                { status: 400 }
-            );
-        }
-
-        if (scopeMode === "SPECIFIC_COLLECTIONS" && targetCollections.length === 0) {
-            return data(
-                { errors: { targetCollections: "Add at least one collection target." } },
-                { status: 400 }
-            );
-        }
-    }
-
-    const minimumType = String(formData.get("minimumType") || "NONE");
-    const minimumSubtotal = formData.get("minimumSubtotal");
-    const minimumQuantity = formData.get("minimumQuantity");
-    const startsAt = formData.get("startsAt");
-    const endsAt = formData.get("endsAt");
-    const usageLimit = formData.get("usageLimit");
-
-    const shippingDestinationMode = String(
-        formData.get("shippingDestinationMode") || "ALL"
-    );
-    const shippingDestinationCountries = parseJsonArray(
-        formData.get("shippingDestinationCountries")
-    );
-    const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
-    const maximumShippingPrice =
-        maximumShippingPriceRaw === "" || maximumShippingPriceRaw == null
-            ? null
-            : Number(maximumShippingPriceRaw);
-
-    const errors = {};
-    const postedDiscountType = String(
-        formData.get("discountType") || groupConfig.discountType
-    );
-    const isBxgy = postedDiscountType === "BXGY";
-    const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
-
-    if (!title) {
-        errors.title = "Title is required.";
-    }
-
-    if (method === "CODE" && !discountCode) {
-        errors.discountCode = "Discount code is required when code method is selected.";
-    }
-
-    if (
-        !isBxgy &&
-        !isFreeShipping &&
-        (discountValue == null || !Number.isFinite(discountValue) || discountValue <= 0)
-    ) {
-        errors.discountValue = "Enter a valid discount value.";
-    }
-
-    if (
-        !isBxgy &&
-        !isFreeShipping &&
-        String(formData.get("isPercentage") || "true") === "true" &&
-        discountValue > 100
-    ) {
-        errors.discountValue = "Percentage value cannot be more than 100.";
-    }
-
-    if (isFreeShipping) {
-        if (
-            shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
-            shippingDestinationCountries.length === 0
-        ) {
-            errors.shippingDestinationCountries = "Add at least one destination country.";
-        }
-
-        if (
-            maximumShippingPriceRaw &&
-            (!Number.isFinite(maximumShippingPrice) || maximumShippingPrice <= 0)
-        ) {
-            errors.maximumShippingPrice =
-                "Maximum shipping price must be greater than 0.";
-        }
-    }
-
-    if (isBxgy) {
-        const buyRequirementType = String(formData.get("bxgyBuyRequirementType") || "QUANTITY");
-        const buyQuantity = Number(formData.get("bxgyBuyQuantity"));
-        const buyAmount = Number(formData.get("bxgyBuyAmount"));
-        const buyTargetType = String(formData.get("bxgyBuyTargetType") || "PRODUCTS");
-        const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
-        const buyCollections = parseJsonArray(formData.get("bxgyBuyCollections"));
-
-        const getQuantity = Number(formData.get("bxgyGetQuantity"));
-        const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
-        const getPercentage = Number(formData.get("bxgyGetPercentage"));
-        const getAmount = Number(formData.get("bxgyGetAmount"));
-        const getTargetType = String(formData.get("bxgyGetTargetType") || "PRODUCTS");
-        const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
-        const getCollections = parseJsonArray(formData.get("bxgyGetCollections"));
-
-        const usesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
-
-        if (buyRequirementType === "QUANTITY" && (!Number.isInteger(buyQuantity) || buyQuantity <= 0)) {
-            errors.bxgyBuyQuantity = "Enter a valid buy quantity.";
-        }
-
-        if (buyRequirementType === "AMOUNT" && (!Number.isFinite(buyAmount) || buyAmount <= 0)) {
-            errors.bxgyBuyAmount = "Enter a valid spend amount.";
-        }
-
-        if (buyTargetType === "PRODUCTS" && buyProducts.length === 0) {
-            errors.bxgyBuyProducts = "Add at least one product customers must buy.";
-        }
-
-        if (buyTargetType === "COLLECTIONS" && buyCollections.length === 0) {
-            errors.bxgyBuyCollections = "Add at least one collection customers must buy from.";
-        }
-
-        if (!Number.isInteger(getQuantity) || getQuantity <= 0) {
-            errors.bxgyGetQuantity = "Enter a valid reward quantity.";
-        }
-
-        if (
-            getEffect === "PERCENTAGE" &&
-            (!Number.isFinite(getPercentage) || getPercentage <= 0 || getPercentage > 100)
-        ) {
-            errors.bxgyGetPercentage = "Enter a valid reward percentage.";
-        }
-
-        if (getEffect === "AMOUNT_OFF_EACH" && (!Number.isFinite(getAmount) || getAmount <= 0)) {
-            errors.bxgyGetAmount = "Enter a valid amount off per reward item.";
-        }
-
-        if (getTargetType === "PRODUCTS" && getProducts.length === 0) {
-            errors.bxgyGetProducts = "Add at least one reward product.";
-        }
-
-        if (getTargetType === "COLLECTIONS" && getCollections.length === 0) {
-            errors.bxgyGetCollections = "Add at least one reward collection.";
-        }
-
-        if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
-            errors.bxgyUsesPerOrderLimit = "Uses per order must be greater than 0.";
-        }
-    }
-
-    if (minimumType === "SUBTOTAL" && (!minimumSubtotal || Number(minimumSubtotal) <= 0)) {
-        errors.minimumSubtotal = "Enter a valid minimum subtotal.";
-    }
-
-    if (minimumType === "QUANTITY" && (!minimumQuantity || Number(minimumQuantity) <= 0)) {
-        errors.minimumQuantity = "Enter a valid minimum quantity.";
-    }
-
-    if (usageLimit && Number(usageLimit) <= 0) {
-        errors.usageLimit = "Usage limit must be greater than 0.";
-    }
-
-    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
-        errors.endsAt = "End date must be after the start date.";
-    }
-
-    if (Object.keys(errors).length > 0) {
-        return data({ errors }, { status: 400 });
-    }
-
-    const payload = buildDraftPayload({
-        shopId: shop.id,
-        formData,
-        access,
-        template,
-    });
-
-    if (!canUseDiscountType(access, payload.discountType)) {
-        return data(
-            { errors: { form: "This discount type requires a higher plan." } },
-            { status: 403 }
-        );
-    }
-
-    const discount = await prisma.discount.create({
-        data: {
-            ...payload,
-            ...(payload.discountType === "BXGY"
-                ? {
-                    bxgyConfig: {
-                        create: buildBxgyConfigPayload(formData),
+                {
+                    errors: {
+                        form: "This template requires a higher plan.",
                     },
-                }
-                : {}),
-        },
-        include: {
-            bxgyConfig: true,
-        },
-    });
+                },
+                { status: 403 }
+            );
+        }
 
-    const syncDiscount = {
-        ...discount,
-        group,
-        scopeMode,
-    };
+        if (!canUseDiscountType(access, groupConfig.discountType)) {
+            return data(
+                {
+                    errors: {
+                        form: "This discount type requires a higher plan.",
+                    },
+                },
+                { status: 403 }
+            );
+        }
 
-    if (intent === "draft") {
-        return redirect(`/app/discounts?draft=${discount.id}`);
-    }
+        if (intent === "publish") {
+            logger.info(SRC, "Checking active-discount creation limit", {
+                shopId,
+                discountType: groupConfig.discountType,
+            });
 
-    try {
-        const { pushDiscountToShopify } = await import("../utils/discount-sync.server.js");
-        const { shopifyDiscountId } = await pushDiscountToShopify({
-            admin,
-            discount: syncDiscount,
-            currencyCode: "USD",
+            const activeDiscountCount = await prisma.discount.count({
+                where: {
+                    shopId,
+                    status: { in: [ "ACTIVE", "SCHEDULED" ] },
+                },
+            });
+
+            await assertCanCreateDiscount({
+                request,
+                activeDiscountCount,
+                discountType: groupConfig.discountType,
+                template,
+            });
+
+            logger.info(SRC, "Active-discount creation limit allowed", {
+                shopId,
+                activeDiscountCount,
+            });
+        }
+
+        logger.info(SRC, "Checking advanced feature access", {
+            shopId,
+            group,
         });
 
-        await prisma.discount.update({
-            where: { id: discount.id },
+        try {
+            assertAdvancedFeatureAccess(access, {
+                group,
+                formData,
+            });
+
+            logger.info(SRC, "Advanced feature access allowed", {
+                shopId,
+                group,
+            });
+        } catch (err) {
+            logger.warn(SRC, "Advanced feature access rejected request", {
+                shopId,
+                group,
+                error: logger.serializeError(err),
+            });
+
+            return data(
+                {
+                    errors: {
+                        form:
+                            err?.message ||
+                            "This feature is not available on your current plan.",
+                    },
+                },
+                { status: 403 }
+            );
+        }
+
+        const title = String(formData.get("title") || "").trim();
+        const method = String(formData.get("method") || groupConfig.method);
+
+        if (!groupConfig.supportedMethods.includes(method)) {
+            return data(
+                {
+                    errors: {
+                        form: `${groupConfig.title} currently supports ${groupConfig.supportedMethods
+                            .map((item) => item.toLowerCase())
+                            .join(" or ")} method only.`,
+                    },
+                },
+                { status: 400 }
+            );
+        }
+
+        const discountCode = String(formData.get("discountCode") || "").trim();
+
+        const discountValueRaw = formData.get("discountValue");
+        const discountValue =
+            discountValueRaw === "" || discountValueRaw == null
+                ? null
+                : Number(discountValueRaw);
+
+        const scopeMode = String(formData.get("scopeMode") || "");
+        const targetProducts = parseJsonArray(formData.get("targetProducts"));
+        const targetCollections = parseJsonArray(formData.get("targetCollections"));
+
+        if (group === "product") {
+            if (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length === 0) {
+                return data(
+                    { errors: { targetProducts: "Add at least one product target." } },
+                    { status: 400 }
+                );
+            }
+
+            if (
+                scopeMode === "SPECIFIC_COLLECTIONS" &&
+                targetCollections.length === 0
+            ) {
+                return data(
+                    {
+                        errors: {
+                            targetCollections: "Add at least one collection target.",
+                        },
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
+        const minimumType = String(formData.get("minimumType") || "NONE");
+        const minimumSubtotal = formData.get("minimumSubtotal");
+        const minimumQuantity = formData.get("minimumQuantity");
+        const startsAt = formData.get("startsAt");
+        const endsAt = formData.get("endsAt");
+        const usageLimit = formData.get("usageLimit");
+
+        const shippingDestinationMode = String(
+            formData.get("shippingDestinationMode") || "ALL"
+        );
+        const shippingDestinationCountries = parseJsonArray(
+            formData.get("shippingDestinationCountries")
+        );
+        const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
+        const maximumShippingPrice =
+            maximumShippingPriceRaw === "" || maximumShippingPriceRaw == null
+                ? null
+                : Number(maximumShippingPriceRaw);
+
+        const errors = {};
+        const postedDiscountType = String(
+            formData.get("discountType") || groupConfig.discountType
+        );
+        const isBxgy = postedDiscountType === "BXGY";
+        const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
+
+        if (!title) {
+            errors.title = "Title is required.";
+        }
+
+        if (method === "CODE" && !discountCode) {
+            errors.discountCode =
+                "Discount code is required when code method is selected.";
+        }
+
+        if (
+            !isBxgy &&
+            !isFreeShipping &&
+            (discountValue == null ||
+                !Number.isFinite(discountValue) ||
+                discountValue <= 0)
+        ) {
+            errors.discountValue = "Enter a valid discount value.";
+        }
+
+        if (
+            !isBxgy &&
+            !isFreeShipping &&
+            String(formData.get("isPercentage") || "true") === "true" &&
+            discountValue > 100
+        ) {
+            errors.discountValue = "Percentage value cannot be more than 100.";
+        }
+
+        if (isFreeShipping) {
+            if (
+                shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
+                shippingDestinationCountries.length === 0
+            ) {
+                errors.shippingDestinationCountries =
+                    "Add at least one destination country.";
+            }
+
+            if (
+                maximumShippingPriceRaw &&
+                (!Number.isFinite(maximumShippingPrice) ||
+                    maximumShippingPrice <= 0)
+            ) {
+                errors.maximumShippingPrice =
+                    "Maximum shipping price must be greater than 0.";
+            }
+        }
+
+        if (isBxgy) {
+            const buyRequirementType = String(
+                formData.get("bxgyBuyRequirementType") || "QUANTITY"
+            );
+            const buyQuantity = Number(formData.get("bxgyBuyQuantity"));
+            const buyAmount = Number(formData.get("bxgyBuyAmount"));
+            const buyTargetType = String(
+                formData.get("bxgyBuyTargetType") || "PRODUCTS"
+            );
+            const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
+            const buyCollections = parseJsonArray(
+                formData.get("bxgyBuyCollections")
+            );
+
+            const getQuantity = Number(formData.get("bxgyGetQuantity"));
+            const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
+            const getPercentage = Number(formData.get("bxgyGetPercentage"));
+            const getAmount = Number(formData.get("bxgyGetAmount"));
+            const getTargetType = String(
+                formData.get("bxgyGetTargetType") || "PRODUCTS"
+            );
+            const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
+            const getCollections = parseJsonArray(
+                formData.get("bxgyGetCollections")
+            );
+            const usesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
+
+            if (
+                buyRequirementType === "QUANTITY" &&
+                (!Number.isInteger(buyQuantity) || buyQuantity <= 0)
+            ) {
+                errors.bxgyBuyQuantity = "Enter a valid buy quantity.";
+            }
+
+            if (
+                buyRequirementType === "AMOUNT" &&
+                (!Number.isFinite(buyAmount) || buyAmount <= 0)
+            ) {
+                errors.bxgyBuyAmount = "Enter a valid spend amount.";
+            }
+
+            if (buyTargetType === "PRODUCTS" && buyProducts.length === 0) {
+                errors.bxgyBuyProducts =
+                    "Add at least one product customers must buy.";
+            }
+
+            if (buyTargetType === "COLLECTIONS" && buyCollections.length === 0) {
+                errors.bxgyBuyCollections =
+                    "Add at least one collection customers must buy from.";
+            }
+
+            if (!Number.isInteger(getQuantity) || getQuantity <= 0) {
+                errors.bxgyGetQuantity = "Enter a valid reward quantity.";
+            }
+
+            if (
+                getEffect === "PERCENTAGE" &&
+                (!Number.isFinite(getPercentage) ||
+                    getPercentage <= 0 ||
+                    getPercentage > 100)
+            ) {
+                errors.bxgyGetPercentage = "Enter a valid reward percentage.";
+            }
+
+            if (
+                getEffect === "AMOUNT_OFF_EACH" &&
+                (!Number.isFinite(getAmount) || getAmount <= 0)
+            ) {
+                errors.bxgyGetAmount = "Enter a valid amount off per reward item.";
+            }
+
+            if (getTargetType === "PRODUCTS" && getProducts.length === 0) {
+                errors.bxgyGetProducts = "Add at least one reward product.";
+            }
+
+            if (getTargetType === "COLLECTIONS" && getCollections.length === 0) {
+                errors.bxgyGetCollections =
+                    "Add at least one reward collection.";
+            }
+
+            if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
+                errors.bxgyUsesPerOrderLimit =
+                    "Uses per order must be greater than 0.";
+            }
+        }
+
+        if (
+            minimumType === "SUBTOTAL" &&
+            (!minimumSubtotal || Number(minimumSubtotal) <= 0)
+        ) {
+            errors.minimumSubtotal = "Enter a valid minimum subtotal.";
+        }
+
+        if (
+            minimumType === "QUANTITY" &&
+            (!minimumQuantity || Number(minimumQuantity) <= 0)
+        ) {
+            errors.minimumQuantity = "Enter a valid minimum quantity.";
+        }
+
+        if (usageLimit && Number(usageLimit) <= 0) {
+            errors.usageLimit = "Usage limit must be greater than 0.";
+        }
+
+        if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+            errors.endsAt = "End date must be after the start date.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            logger.warn(SRC, "Create validation rejected request", {
+                shopId,
+                errorFields: Object.keys(errors),
+            });
+
+            return data({ errors }, { status: 400 });
+        }
+
+        logger.info(SRC, "Building draft payload", {
+            shopId,
+            group,
+        });
+
+        const payload = buildDraftPayload({
+            shopId,
+            formData,
+            access,
+            template,
+        });
+
+        logger.info(SRC, "Draft payload built", {
+            shopId,
+            method: payload.method,
+            discountType: payload.discountType,
+            status: payload.status,
+        });
+
+        if (!canUseDiscountType(access, payload.discountType)) {
+            return data(
+                {
+                    errors: {
+                        form: "This discount type requires a higher plan.",
+                    },
+                },
+                { status: 403 }
+            );
+        }
+
+        logger.info(SRC, "Building discount identity", {
+            shopId,
+            method: payload.method,
+            discountType: payload.discountType,
+            status: payload.status,
+            hasTitle: Boolean(payload.title),
+            hasDiscountCode: Boolean(payload.shopifyDiscountCode),
+        });
+
+        const identityResult = await resolveDiscountIdentityForSave({
+            shopId,
+            method: payload.method,
+            title: payload.title,
+            shopifyDiscountCode: payload.shopifyDiscountCode,
+            status: payload.status,
+        });
+
+        logger.info(SRC, "Discount identity resolved", {
+            shopId,
+            ok: identityResult.ok,
+            matchType: identityResult.identity?.matchType || null,
+            matchKey: identityResult.identity?.matchKey || null,
+            collisionId: identityResult.collision?.id || null,
+            errorFields: identityResult.errors
+                ? Object.keys(identityResult.errors)
+                : [],
+        });
+
+        if (!identityResult.ok) {
+            return data(
+                { errors: identityResult.errors },
+                { status: 400 }
+            );
+        }
+
+        logger.info(SRC, "Creating discount draft", {
+            shopId,
+            intent,
+            method: payload.method,
+            discountType: payload.discountType,
+            matchType: identityResult.identity.matchType,
+            isMatchable: identityResult.identity.isMatchable,
+        });
+
+        const discount = await prisma.discount.create({
             data: {
-                status: new Date(discount.startsAt) > new Date() ? "SCHEDULED" : "ACTIVE",
+                ...payload,
+                matchType: identityResult.identity.matchType,
+                matchKey: identityResult.identity.matchKey,
+                isMatchable: identityResult.identity.isMatchable,
+                identityVersion: identityResult.identity.identityVersion,
+                ...(payload.discountType === "BXGY"
+                    ? {
+                        bxgyConfig: {
+                            create: buildBxgyConfigPayload(formData),
+                        },
+                    }
+                    : {}),
+            },
+            include: {
+                bxgyConfig: true,
+            },
+        });
+
+        discountId = discount.id;
+
+        logger.info(SRC, "Discount draft created", {
+            shopId,
+            discountId,
+            status: discount.status,
+            matchType: discount.matchType,
+            isMatchable: discount.isMatchable,
+        });
+
+        const syncDiscount = {
+            ...discount,
+            group,
+            scopeMode,
+        };
+
+        if (intent === "draft") {
+            logger.info(SRC, "Redirecting to discounts", {
+                shopId,
+                discountId,
+            });
+
+            return redirect(`/app/discounts`);
+        }
+
+        try {
+            logger.info(SRC, "Starting Shopify discount publish", {
+                shopId,
+                discountId,
+                discountType: discount.discountType,
+                method: discount.method,
+                status: discount.status,
+                hasBxgyConfig: Boolean(discount.bxgyConfig),
+            });
+
+            const { pushDiscountToShopify } = await import(
+                "../utils/discount-sync.server.js"
+            );
+
+            const { shopifyDiscountId } = await pushDiscountToShopify({
+                admin,
+                discount: syncDiscount,
+                currencyCode: "USD",
+            });
+
+            const nextStatus =
+                new Date(discount.startsAt) > new Date()
+                    ? "SCHEDULED"
+                    : "ACTIVE";
+
+            await prisma.discount.update({
+                where: { id: discountId },
+                data: {
+                    status: nextStatus,
+                    shopifyDiscountId,
+                    lastSyncedAt: new Date(),
+                    isMatchable: computeIsMatchable(nextStatus),
+                },
+            });
+
+            logger.info(SRC, "Shopify discount published", {
+                shopId,
+                discountId,
                 shopifyDiscountId,
-                lastSyncedAt: new Date(),
-            },
-        });
+                nextStatus,
+            });
 
-        return redirect(`/app/discounts?published=${discount.id}`);
+            return redirect("/app/discounts");
+        } catch (err) {
+            logger.error(SRC, "Shopify discount publish failed", {
+                shopId,
+                discountId,
+                error: logger.serializeError(err),
+            });
+
+            await prisma.discount.update({
+                where: { id: discountId },
+                data: {
+                    status: "FAILED",
+                    lastError: String(err?.message || err),
+                    isMatchable: false,
+                },
+            });
+
+            return data(
+                {
+                    errors: {
+                        form: `Saved as draft, but publishing to Shopify failed: ${err?.message || err
+                            }`,
+                    },
+                },
+                { status: 422 }
+            );
+        }
     } catch (err) {
-        await prisma.discount.update({
-            where: { id: discount.id },
-            data: {
-                status: "FAILED",
-                lastError: String(err?.message || err),
-            },
+        logger.error(SRC, "Unexpected create-discount action failure", {
+            shopId,
+            discountId,
+            error: logger.serializeError(err),
         });
 
         return data(
             {
                 errors: {
-                    form: `Saved as draft, but publishing to Shopify failed: ${err?.message || err}`,
+                    form: `Unable to save discount draft: ${err?.message || "Unknown error"
+                        }`,
                 },
             },
-            { status: 422 }
+            { status: 500 }
         );
     }
 };
@@ -744,6 +1038,18 @@ export default function DiscountCreatePage() {
     const groupValue = getGroupKeyFromDiscountType(groupConfig.discountType) || group;
     const state = useDiscountWizardState({ groupConfig, template, groupValue });
 
+    useEffect(() => {
+        if (!errors) return;
+
+        const firstFieldWithError = Object.keys(errors).find(
+            (field) => ERROR_STEP_BY_FIELD[ field ] !== undefined
+        );
+
+        if (firstFieldWithError) {
+            state.setCurrentStep(ERROR_STEP_BY_FIELD[ firstFieldWithError ]);
+        }
+    }, [ errors, state.setCurrentStep ]);
+
     const computedDiscountType =
         groupValue === "product"
             ? (state.isPercentage ? "PRODUCT_PERCENTAGE" : "PRODUCT_FIXED")
@@ -770,9 +1076,15 @@ export default function DiscountCreatePage() {
                     </Link>
                 </div>
 
-                {errors.form ? (
-                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {errors.form}
+                {errors && Object.keys(errors).length > 0 ? (
+                    <div
+                        role="alert"
+                        className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                    >
+                        {errors.form ||
+                            errors.discountCode ||
+                            errors.title ||
+                            "Please correct the highlighted fields and try again."}
                     </div>
                 ) : null}
 

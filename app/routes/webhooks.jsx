@@ -2,6 +2,12 @@
 import { authenticate } from "../shopify.server.js";
 import prisma from "../db.server.js";
 import { handleAppSubscriptionUpdateWebhook } from "../services/subscription.server.js";
+import {
+    handleOrdersCreateWebhook,
+    handleOrdersUpdatedWebhook,
+    handleOrdersCancelledWebhook,
+    handleRefundsCreateWebhook,
+} from "../services/orders.server.js";
 import { invalidateAccessCache } from "../utils/access-cache.server.js";
 import { logger } from "../utils/logger.server.js";
 
@@ -33,6 +39,22 @@ export async function action({ request }) {
 
             case "APP_UNINSTALLED":
                 await handleAppUninstalled({ shop, session, webhookId });
+                break;
+
+            case "ORDERS_CREATE":
+                await handleOrdersCreateWebhook({ shop, payload, webhookId });
+                break;
+
+            case "ORDERS_UPDATED":
+                await handleOrdersUpdatedWebhook({ shop, payload, webhookId });
+                break;
+
+            case "ORDERS_CANCELLED":
+                await handleOrdersCancelledWebhook({ shop, payload, webhookId });
+                break;
+
+            case "REFUNDS_CREATE":
+                await handleRefundsCreateWebhook({ shop, payload, webhookId });
                 break;
 
             case "CUSTOMERS_DATA_REQUEST":

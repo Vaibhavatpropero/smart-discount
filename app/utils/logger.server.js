@@ -16,6 +16,16 @@ function ensureLogDir() {
     }
 }
 
+function serializeError(error) {
+    if (!error) return null;
+
+    return {
+        name: error.name || "Error",
+        message: error.message || String(error),
+        stack: error.stack || null,
+    };
+}
+
 function writeLog(level, source, message, meta) {
     const entry = {
         ts: new Date().toISOString(),
@@ -44,7 +54,14 @@ function writeLog(level, source, message, meta) {
 }
 
 export const logger = {
-    info(source, message, meta) { writeLog("info", source, message, meta); },
-    warn(source, message, meta) { writeLog("warn", source, message, meta); },
-    error(source, message, meta) { writeLog("error", source, message, meta); },
+    info(source, message, meta) {
+        writeLog("info", source, message, meta);
+    },
+    warn(source, message, meta) {
+        writeLog("warn", source, message, meta);
+    },
+    error(source, message, meta) {
+        writeLog("error", source, message, meta);
+    },
+    serializeError,
 };

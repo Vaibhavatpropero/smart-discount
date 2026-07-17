@@ -7,6 +7,9 @@ import {
     getDiscountAccessState,
     requireCreateDiscountAccess,
 } from "../utils/plan-gate.server.js";
+import {
+    resolveDiscountIdentityForSave,
+} from "../utils/discount-identity.server.js";
 import { authenticate } from "../shopify.server.js";
 import BasicsStep from "../components/discount-wizard/steps/BasicsStep.jsx";
 import ValueStep from "../components/discount-wizard/steps/ValueStep.jsx";
@@ -530,8 +533,12 @@ export const action = async ({ request }) => {
     const formData = await request.formData();
 
     const id = String(formData.get("id") || "").trim();
+
     if (!id) {
-        return data({ errors: { form: "Draft id is required." } }, { status: 400 });
+        return data(
+            { errors: { form: "Draft id is required." } },
+            { status: 400 }
+        );
     }
 
     const existingDiscount = await prisma.discount.findFirst({
@@ -545,7 +552,10 @@ export const action = async ({ request }) => {
     });
 
     if (!existingDiscount) {
-        return data({ errors: { form: "Draft not found." } }, { status: 404 });
+        return data(
+            { errors: { form: "Draft not found." } },
+            { status: 404 }
+        );
     }
 
     const accessState = getDiscountAccessState(access, existingDiscount);
@@ -555,7 +565,7 @@ export const action = async ({ request }) => {
             {
                 errors: {
                     form:
-                        accessState.reason === "trialexpired"
+                        accessState.reason === "trial_expired"
                             ? "Your trial has expired. Upgrade to edit this discount."
                             : "Your current plan cannot edit this discount.",
                 },
@@ -564,15 +574,23 @@ export const action = async ({ request }) => {
         );
     }
 
-    if (existingDiscount.status !== "DRAFT" && existingDiscount.status !== "FAILED") {
+    if (
+        existingDiscount.status !== "DRAFT" &&
+        existingDiscount.status !== "FAILED"
+    ) {
         return data(
-            { errors: { form: "Only draft discounts can be edited or published here." } },
+            {
+                errors: {
+                    form: "Only draft discounts can be edited or published here.",
+                },
+            },
             { status: 400 }
         );
     }
 
     const group = String(
-        formData.get("group") || getGroupKeyFromDiscountType(existingDiscount.discountType)
+        formData.get("group") ||
+        getGroupKeyFromDiscountType(existingDiscount.discountType)
     ).toLowerCase();
 
     const groupConfig = getGroupConfig(group);
@@ -582,7 +600,9 @@ export const action = async ({ request }) => {
 
     const discountValueRaw = formData.get("discountValue");
     const discountValue =
-        discountValueRaw === "" || discountValueRaw == null ? null : Number(discountValueRaw);
+        discountValueRaw === "" || discountValueRaw == null
+            ? null
+            : Number(discountValueRaw);
 
     const scopeMode = String(formData.get("scopeMode") || "");
     const targetProducts = parseJsonArray(formData.get("targetProducts"));
@@ -591,14 +611,25 @@ export const action = async ({ request }) => {
     if (group === "product") {
         if (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length === 0) {
             return data(
-                { errors: { targetProducts: "Add at least one product target." } },
+                {
+                    errors: {
+                        targetProducts: "Add at least one product target.",
+                    },
+                },
                 { status: 400 }
             );
         }
 
-        if (scopeMode === "SPECIFIC_COLLECTIONS" && targetCollections.length === 0) {
+        if (
+            scopeMode === "SPECIFIC_COLLECTIONS" &&
+            targetCollections.length === 0
+        ) {
             return data(
-                { errors: { targetCollections: "Add at least one collection target." } },
+                {
+                    errors: {
+                        targetCollections: "Add at least one collection target.",
+                    },
+                },
                 { status: 400 }
             );
         }
@@ -613,7 +644,9 @@ export const action = async ({ request }) => {
 
     const errors = {};
     const postedDiscountType = String(
-        formData.get("discountType") || existingDiscount.discountType || groupConfig.discountType
+        formData.get("discountType") ||
+        existingDiscount.discountType ||
+        groupConfig.discountType
     );
     const isBxgy = postedDiscountType === "BXGY";
     const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
@@ -623,13 +656,16 @@ export const action = async ({ request }) => {
     }
 
     if (method === "CODE" && !discountCode) {
-        errors.discountCode = "Discount code is required when code method is selected.";
+        errors.discountCode =
+            "Discount code is required when code method is selected.";
     }
 
     if (
         !isBxgy &&
         !isFreeShipping &&
-        (discountValue == null || !Number.isFinite(discountValue) || discountValue <= 0)
+        (discountValue == null ||
+            !Number.isFinite(discountValue) ||
+            discountValue <= 0)
     ) {
         errors.discountValue = "Enter a valid discount value.";
     }
@@ -644,36 +680,54 @@ export const action = async ({ request }) => {
     }
 
     if (isBxgy) {
-        const buyRequirementType = String(formData.get("bxgyBuyRequirementType") || "QUANTITY");
+        const buyRequirementType = String(
+            formData.get("bxgyBuyRequirementType") || "QUANTITY"
+        );
         const buyQuantity = Number(formData.get("bxgyBuyQuantity"));
         const buyAmount = Number(formData.get("bxgyBuyAmount"));
-        const buyTargetType = String(formData.get("bxgyBuyTargetType") || "PRODUCTS");
+        const buyTargetType = String(
+            formData.get("bxgyBuyTargetType") || "PRODUCTS"
+        );
         const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
-        const buyCollections = parseJsonArray(formData.get("bxgyBuyCollections"));
+        const buyCollections = parseJsonArray(
+            formData.get("bxgyBuyCollections")
+        );
 
         const getQuantity = Number(formData.get("bxgyGetQuantity"));
         const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
         const getPercentage = Number(formData.get("bxgyGetPercentage"));
-        const getTargetType = String(formData.get("bxgyGetTargetType") || "PRODUCTS");
+        const getTargetType = String(
+            formData.get("bxgyGetTargetType") || "PRODUCTS"
+        );
         const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
-        const getCollections = parseJsonArray(formData.get("bxgyGetCollections"));
+        const getCollections = parseJsonArray(
+            formData.get("bxgyGetCollections")
+        );
 
         const usesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
 
-        if (buyRequirementType === "QUANTITY" && (!Number.isInteger(buyQuantity) || buyQuantity <= 0)) {
+        if (
+            buyRequirementType === "QUANTITY" &&
+            (!Number.isInteger(buyQuantity) || buyQuantity <= 0)
+        ) {
             errors.bxgyBuyQuantity = "Enter a valid buy quantity.";
         }
 
-        if (buyRequirementType === "AMOUNT" && (!Number.isFinite(buyAmount) || buyAmount <= 0)) {
+        if (
+            buyRequirementType === "AMOUNT" &&
+            (!Number.isFinite(buyAmount) || buyAmount <= 0)
+        ) {
             errors.bxgyBuyAmount = "Enter a valid spend amount.";
         }
 
         if (buyTargetType === "PRODUCTS" && buyProducts.length === 0) {
-            errors.bxgyBuyProducts = "Add at least one product customers must buy.";
+            errors.bxgyBuyProducts =
+                "Add at least one product customers must buy.";
         }
 
         if (buyTargetType === "COLLECTIONS" && buyCollections.length === 0) {
-            errors.bxgyBuyCollections = "Add at least one collection customers must buy from.";
+            errors.bxgyBuyCollections =
+                "Add at least one collection customers must buy from.";
         }
 
         if (!Number.isInteger(getQuantity) || getQuantity <= 0) {
@@ -682,13 +736,16 @@ export const action = async ({ request }) => {
 
         if (
             getEffect === "PERCENTAGE" &&
-            (!Number.isFinite(getPercentage) || getPercentage <= 0 || getPercentage > 100)
+            (!Number.isFinite(getPercentage) ||
+                getPercentage <= 0 ||
+                getPercentage > 100)
         ) {
             errors.bxgyGetPercentage = "Enter a valid reward percentage.";
         }
 
         if (getEffect === "AMOUNT_OFF_EACH") {
             const getAmount = Number(formData.get("bxgyGetAmount"));
+
             if (!Number.isFinite(getAmount) || getAmount <= 0) {
                 errors.bxgyGetAmount = "Enter a valid amount off each item.";
             }
@@ -699,16 +756,20 @@ export const action = async ({ request }) => {
         }
 
         if (getTargetType === "COLLECTIONS" && getCollections.length === 0) {
-            errors.bxgyGetCollections = "Add at least one reward collection.";
+            errors.bxgyGetCollections =
+                "Add at least one reward collection.";
         }
 
         if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
-            errors.bxgyUsesPerOrderLimit = "Uses per order must be greater than 0.";
+            errors.bxgyUsesPerOrderLimit =
+                "Uses per order must be greater than 0.";
         }
     }
 
     if (isFreeShipping) {
-        const shippingDestinationMode = String(formData.get("shippingDestinationMode") || "ALL");
+        const shippingDestinationMode = String(
+            formData.get("shippingDestinationMode") || "ALL"
+        );
         const shippingDestinationCountries = parseJsonArray(
             formData.get("shippingDestinationCountries")
         );
@@ -718,7 +779,8 @@ export const action = async ({ request }) => {
             shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
             shippingDestinationCountries.length === 0
         ) {
-            errors.shippingDestinationCountries = "Add at least one destination country.";
+            errors.shippingDestinationCountries =
+                "Add at least one destination country.";
         }
 
         if (
@@ -727,15 +789,22 @@ export const action = async ({ request }) => {
             (!Number.isFinite(Number(maximumShippingPriceRaw)) ||
                 Number(maximumShippingPriceRaw) < 0)
         ) {
-            errors.maximumShippingPrice = "Enter a valid maximum shipping price.";
+            errors.maximumShippingPrice =
+                "Enter a valid maximum shipping price.";
         }
     }
 
-    if (minimumType === "SUBTOTAL" && (!minimumSubtotal || Number(minimumSubtotal) <= 0)) {
+    if (
+        minimumType === "SUBTOTAL" &&
+        (!minimumSubtotal || Number(minimumSubtotal) <= 0)
+    ) {
         errors.minimumSubtotal = "Enter a valid minimum subtotal.";
     }
 
-    if (minimumType === "QUANTITY" && (!minimumQuantity || Number(minimumQuantity) <= 0)) {
+    if (
+        minimumType === "QUANTITY" &&
+        (!minimumQuantity || Number(minimumQuantity) <= 0)
+    ) {
         errors.minimumQuantity = "Enter a valid minimum quantity.";
     }
 
@@ -761,7 +830,11 @@ export const action = async ({ request }) => {
 
     if (!canUseDiscountType(access, payload.discountType)) {
         return data(
-            { errors: { form: "This discount type requires a higher plan." } },
+            {
+                errors: {
+                    form: "This discount type requires a higher plan.",
+                },
+            },
             { status: 403 }
         );
     }
@@ -769,37 +842,97 @@ export const action = async ({ request }) => {
     const intent = String(formData.get("intent") || "draft");
     const bxgyConfigPayload = buildBxgyConfigPayload(formData);
 
-    const { shopId, ...updateData } = payload;
+    const {
+        shopId: _payloadShopId,
+        scopeMode: _payloadScopeMode,
+        shippingDestinationMode: _payloadShippingDestinationMode,
+        ...updateData
+    } = payload;
 
     const updatedDiscount = await prisma.discount.update({
         where: { id: existingDiscount.id },
         data: {
             ...updateData,
-            bxgyConfig:
-                payload.discountType === "BXGY"
-                    ? {
+
+            ...(payload.discountType === "BXGY"
+                ? {
+                    bxgyConfig: {
                         upsert: {
                             create: bxgyConfigPayload,
                             update: bxgyConfigPayload,
                         },
-                    }
-                    : undefined,
+                    },
+                }
+                : {}),
         },
-        include: { bxgyConfig: true },
+        include: {
+            bxgyConfig: true,
+        },
     });
 
     const syncDiscount = {
         ...updatedDiscount,
         group,
-        scopeMode: updateData.scopeMode,
+        scopeMode,
     };
 
     if (intent === "draft") {
-        return redirect(`/app/discounts-edit?id=${updatedDiscount.id}&saved=1`);
+        const draftIdentity = await resolveDiscountIdentityForSave({
+            shopId: shop.id,
+            method: updatedDiscount.method,
+            title: updatedDiscount.title,
+            shopifyDiscountCode: updatedDiscount.shopifyDiscountCode,
+            status: "DRAFT",
+            excludeDiscountId: updatedDiscount.id,
+        });
+
+        if (draftIdentity.ok) {
+            await prisma.discount.update({
+                where: { id: updatedDiscount.id },
+                data: {
+                    matchType: draftIdentity.identity.matchType,
+                    matchKey: draftIdentity.identity.matchKey,
+                    isMatchable: false, // drafts are never matchable
+                    identityVersion: draftIdentity.identity.identityVersion,
+                },
+            });
+        }
+
+        return redirect(
+            `/app/discounts-edit?id=${updatedDiscount.id}&saved=1`
+        );
     }
 
     try {
-        const { pushDiscountToShopify } = await import("../utils/discount-sync.server.js");
+        const { pushDiscountToShopify } = await import(
+            "../utils/discount-sync.server.js"
+        );
+
+        const nextStatus =
+            new Date(updatedDiscount.startsAt) > new Date()
+                ? "SCHEDULED"
+                : "ACTIVE";
+
+        const identityResult = await resolveDiscountIdentityForSave({
+            shopId: shop.id,
+            method: updatedDiscount.method,
+            title: updatedDiscount.title,
+            shopifyDiscountCode: updatedDiscount.shopifyDiscountCode,
+            status: nextStatus,
+            excludeDiscountId: updatedDiscount.id,
+        });
+
+        if (!identityResult.ok) {
+            return data(
+                {
+                    errors: identityResult.errors || {
+                        form: "This discount identity collides with another matchable discount.",
+                    },
+                },
+                { status: 400 }
+            );
+        }
+
         const { shopifyDiscountId } = await pushDiscountToShopify({
             admin,
             discount: syncDiscount,
@@ -809,27 +942,33 @@ export const action = async ({ request }) => {
         await prisma.discount.update({
             where: { id: updatedDiscount.id },
             data: {
-                status: new Date(updatedDiscount.startsAt) > new Date() ? "SCHEDULED" : "ACTIVE",
+                status: nextStatus,
                 shopifyDiscountId,
                 lastSyncedAt: new Date(),
                 lastError: null,
+                matchType: identityResult.identity.matchType,
+                matchKey: identityResult.identity.matchKey,
+                isMatchable: identityResult.identity.isMatchable,
+                identityVersion: identityResult.identity.identityVersion,
             },
         });
 
-        return redirect(`/app/discounts?published=${updatedDiscount.id}`);
+        return redirect(`/app/discounts`);
     } catch (err) {
         await prisma.discount.update({
             where: { id: updatedDiscount.id },
             data: {
                 status: "FAILED",
                 lastError: String(err?.message || err),
+                isMatchable: false,
             },
         });
 
         return data(
             {
                 errors: {
-                    form: `Saved draft changes, but publishing to Shopify failed: ${err?.message || err}`,
+                    form: `Saved draft changes, but publishing to Shopify failed: ${err?.message || err
+                        }`,
                 },
             },
             { status: 422 }

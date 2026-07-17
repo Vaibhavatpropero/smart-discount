@@ -68,8 +68,8 @@ export default function BasicsStep({ state, errors = {}, groupConfig }) {
                                 type="button"
                                 onClick={() => state.setMethod("AUTOMATIC")}
                                 className={`rounded-xl border p-4 text-left transition ${state.method === "AUTOMATIC"
-                                        ? "border-blue-500 bg-blue-50"
-                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 bg-white hover:border-gray-300"
                                     }`}
                             >
                                 <p className="text-sm font-semibold text-gray-900">Automatic</p>
@@ -84,8 +84,8 @@ export default function BasicsStep({ state, errors = {}, groupConfig }) {
                                 type="button"
                                 onClick={() => state.setMethod("CODE")}
                                 className={`rounded-xl border p-4 text-left transition ${state.method === "CODE"
-                                        ? "border-blue-500 bg-blue-50"
-                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 bg-white hover:border-gray-300"
                                     }`}
                             >
                                 <p className="text-sm font-semibold text-gray-900">Discount code</p>
@@ -104,7 +104,10 @@ export default function BasicsStep({ state, errors = {}, groupConfig }) {
                         type="text"
                         value={state.discountCode}
                         onChange={(e) => state.setDiscountCode(e.target.value)}
-                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm uppercase outline-none focus:border-blue-500"
+                        className={`w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm uppercase outline-none ${errors?.discountCode
+                            ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                            : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                            }`}
                         placeholder="SAVE20"
                     />
                 </Field>

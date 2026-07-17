@@ -93,6 +93,11 @@ enum MinimumRequirementType {
   QUANTITY // Minimum item count
 }
 
+enum DiscountMatchType {
+  CODE
+  AUTOMATIC
+}
+
 enum BxgyCustomerBuysValueType {
   QUANTITY // Buy N items
   AMOUNT // Spend $X
@@ -171,6 +176,7 @@ model Shop {
   discounts      Discount[]
   billingEvents  BillingEvent[]
   discountEvents DiscountEvent[]
+  discountUsages DiscountUsage[]
 
   @@index([planName, planStatus])
   @@index([trialEndsAt])
@@ -275,6 +281,13 @@ model Discount {
   // Stores the raw Shopify API error on FAILED status
   lastError           String?        @db.Text
 
+  matchType        DiscountMatchType?
+  matchKey         String?
+  isMatchable      Boolean            @default(false)
+  identityVersion  Int                @default(1)
+  shopifyDeletedAt DateTime?
+  supersededById   String?
+
   // ── Discount value ────────────────────────────────────────
   // Not used for BXGY (see BxgyConfig) or FREE_SHIPPING.
   discountValue Decimal? @db.Decimal(10, 2)
@@ -340,9 +353,17 @@ model Discount {
   shop       Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
   bxgyConfig BxgyConfig?
   events     DiscountEvent[]
+  usages     DiscountUsage[]
+
+  supersededBy       Discount?           @relation("DiscountSupersession", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes         Discount[]          @relation("DiscountSupersession")
+  discountDailyStats DiscountDailyStat[]
 
   @@index([shopId, status])
   @@index([shopId, discountType])
+  @@index([shopId, matchType, matchKey])
+  @@index([shopId, isMatchable])
+  @@index([shopId, shopifyDiscountCode])
   @@index([shopifyDiscountId])
   @@index([startsAt, endsAt])
   @@index([templateSlug])
@@ -440,4 +461,58 @@ model DiscountTemplate {
 
   @@index([requiredPlan, isActive])
   @@index([category])
+}
+
+// ─────────────────────────────────────────────────────────────
+// DISCOUNT STATS/ANALYTICS
+// Used for showing a overall analytics of all the current discounts
+// registered with app or shows an per-discount analytics
+// ─────────────────────────────────────────────────────────────
+
+model DiscountUsage {
+  id         String @id @default(cuid())
+  shopId     String
+  discountId String
+
+  shopifyOrderId String // Order GID
+  orderName      String? // e.g. "#1023" for display
+  customerId     String? // Shopify Customer GID, null for guest checkout
+  isFirstOrder   Boolean @default(false) // customer's first order ever, for new-customer %
+
+  discountAmount Decimal @db.Decimal(10, 2) // actual allocated amount from discountAllocations
+  orderSubtotal  Decimal @db.Decimal(10, 2)
+  orderTotal     Decimal @db.Decimal(10, 2)
+  currency       String  @default("USD")
+
+  refunded       Boolean @default(false)
+  refundedAmount Decimal @default(0) @db.Decimal(10, 2)
+  cancelled      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shop     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, shopifyOrderId, discountId])
+  @@index([discountId, createdAt])
+  @@index([shopId, createdAt])
+  @@index([customerId])
+}
+
+model DiscountDailyStat {
+  id         String   @id @default(cuid())
+  shopId     String
+  discountId String
+  date       DateTime // truncated to day
+
+  usageCount      Int     @default(0)
+  totalDiscount   Decimal @default(0) @db.Decimal(12, 2)
+  totalRevenue    Decimal @default(0) @db.Decimal(12, 2)
+  uniqueCustomers Int     @default(0)
+
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, date])
+  @@index([shopId, date])
 }
