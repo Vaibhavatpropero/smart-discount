@@ -1,3 +1,4 @@
+// app/routes/_index/route.jsx
 import { redirect, Form, useLoaderData } from "react-router";
 import { login } from "../../shopify.server";
 import styles from "./styles.module.css";

@@ -1,3 +1,4 @@
+// app/routes/auth.$.jsx
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
