@@ -1,0 +1,144 @@
+name: Deploy SmartDiscount to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartdiscount-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ECR_URI: ${{ secrets.AWS_ECR_URI }}
+  AWS_CONTAINER_NAME: smartdiscount-app
+  APP_PORT: 3000
+
+jobs:
+  deploy:
+    name: Build, push, and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build, tag, and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.AWS_ECR_URI }}:latest
+            ${{ env.AWS_ECR_URI }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ECR_URI: ${{ env.AWS_ECR_URI }}
+          IMAGE_TAG: ${{ github.sha }}
+          AWS_CONTAINER_NAME: ${{ env.AWS_CONTAINER_NAME }}
+          APP_PORT: ${{ env.APP_PORT }}
+
+          # Runtime app variables
+          NODE_ENV: production
+          HOST: 0.0.0.0
+          PORT: 3000
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+          SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+          SCOPES: ${{ secrets.SCOPES }}
+          SHOPIFY_APP_URL: ${{ secrets.SHOPIFY_APP_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: >-
+            AWS_REGION,AWS_ECR_URI,IMAGE_TAG,AWS_CONTAINER_NAME,APP_PORT,
+            NODE_ENV,HOST,PORT,
+            SHOPIFY_API_KEY,SHOPIFY_API_SECRET,SCOPES,
+            SHOPIFY_APP_URL,DATABASE_URL,SESSION_SECRET
+          script: |
+            set -euo pipefail
+
+            APP_DIR="/opt/smartdiscount-app"
+            ENV_FILE="${APP_DIR}/.env.prod"
+            ECR_REGISTRY="${AWS_ECR_URI%%/*}"
+            IMAGE_URI="${AWS_ECR_URI}:${IMAGE_TAG}"
+
+            echo "==> Create secure app directory"
+            mkdir -p "$APP_DIR"
+            chmod 700 "$APP_DIR"
+
+            echo "==> ECR login using EC2 IAM role"
+            aws ecr get-login-password --region "$AWS_REGION" | \
+              docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            echo "==> Pull immutable image: $IMAGE_URI"
+            docker pull "$IMAGE_URI"
+
+            echo "==> Write runtime environment file"
+            umask 077
+            cat > "$ENV_FILE" <<EOF
+            NODE_ENV=$NODE_ENV
+            HOST=$HOST
+            PORT=$PORT
+            SHOPIFY_API_KEY=$SHOPIFY_API_KEY
+            SHOPIFY_API_SECRET=$SHOPIFY_API_SECRET
+            SCOPES=$SCOPES
+            SHOPIFY_APP_URL=$SHOPIFY_APP_URL
+            DATABASE_URL=$DATABASE_URL
+            SESSION_SECRET=$SESSION_SECRET
+            EOF
+            chmod 600 "$ENV_FILE"
+
+            echo "==> Replace old container"
+            docker stop "$AWS_CONTAINER_NAME" 2>/dev/null || true
+            docker rm "$AWS_CONTAINER_NAME" 2>/dev/null || true
+
+            echo "==> Start new container"
+            docker run -d \
+              --name "$AWS_CONTAINER_NAME" \
+              --restart unless-stopped \
+              --env-file "$ENV_FILE" \
+              -p "127.0.0.1:${APP_PORT}:3000" \
+              "$IMAGE_URI"
+
+            echo "==> Verify container"
+            sleep 5
+            docker ps --filter "name=$AWS_CONTAINER_NAME"
+            docker logs --tail 100 "$AWS_CONTAINER_NAME"
+
+            echo "==> Verify app responds locally"
+            curl --fail --silent --show-error \
+              "http://127.0.0.1:${APP_PORT}/" > /dev/null
+
+            echo "==> Clean unused Docker layers"
+            docker image prune -f

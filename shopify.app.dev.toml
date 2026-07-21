@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "b2e91acdd3e5fdbf9257cecf1772bbcb"
-name = "smart-discount-dev"
-application_url = "https://example.com"
+name = "smart-discounts-dev"
+application_url = "https://cattily-unperpetuable-tomoko.ngrok-free.dev"
 embedded = true
 
 [build]
@@ -20,4 +20,4 @@ api_version = "2026-07"
 scopes = "read_customers,read_orders,read_products,read_shipping,write_discounts"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://cattily-unperpetuable-tomoko.ngrok-free.dev/api/auth" ]

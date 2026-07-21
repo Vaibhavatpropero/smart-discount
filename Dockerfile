@@ -1,18 +1,20 @@
-FROM node:20-alpine
-RUN apk add --no-cache openssl
+FROM node:24-alpine
 
-EXPOSE 3000
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
 COPY package.json package-lock.json* ./
-
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
 COPY . .
 
 RUN npm run build
+
+# Runtime image keeps production dependencies only.
+ENV NODE_ENV=production
+RUN npm prune --omit=dev
+
+EXPOSE 3000
 
 CMD ["npm", "run", "docker-start"]
