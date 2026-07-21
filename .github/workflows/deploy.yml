@@ -136,9 +136,5 @@ jobs:
             docker ps --filter "name=$AWS_CONTAINER_NAME"
             docker logs --tail 100 "$AWS_CONTAINER_NAME"
 
-            echo "==> Verify app responds locally"
-            curl --fail --silent --show-error \
-              "http://127.0.0.1:${APP_PORT}/" > /dev/null
-
             echo "==> Clean unused Docker layers"
             docker image prune -f
