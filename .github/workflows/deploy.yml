@@ -132,7 +132,7 @@ jobs:
               "$IMAGE_URI"
 
             echo "==> Verify container"
-            sleep 5
+            sleep 20
             docker ps --filter "name=$AWS_CONTAINER_NAME"
             docker logs --tail 100 "$AWS_CONTAINER_NAME"
 
