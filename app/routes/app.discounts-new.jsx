@@ -67,7 +67,7 @@ const GROUP_CONFIG = {
         family: "BXGY",
         discountType: "BXGY",
         method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC" ],
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Buy X get Y",
         shortTitle: "BXGY",
         description: "Create a BOGO or multi-buy promotion.",
@@ -80,7 +80,7 @@ const GROUP_CONFIG = {
         family: "FREE_SHIPPING",
         discountType: "FREE_SHIPPING",
         method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC" ],
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Free shipping discount",
         shortTitle: "Shipping",
         description: "Create a shipping incentive for checkout conversion.",
@@ -352,6 +352,7 @@ export const loader = async ({ request }) => {
     const group = String(url.searchParams.get("group") || "order").toLowerCase();
     const templateSlug = url.searchParams.get("template");
     const groupConfig = getGroupConfig(group);
+    logger.info(SRC, "Loader group config: ", groupConfig);
 
     let template = null;
     if (templateSlug) {
@@ -717,9 +718,12 @@ export const action = async ({ request }) => {
                     "Add at least one reward collection.";
             }
 
-            if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
-                errors.bxgyUsesPerOrderLimit =
-                    "Uses per order must be greater than 0.";
+            if (
+                usesPerOrderLimitRaw &&
+                (!Number.isInteger(Number(usesPerOrderLimitRaw)) ||
+                    Number(usesPerOrderLimitRaw) <= 0)
+            ) {
+                errors.bxgyUsesPerOrderLimit = "Uses per order must be a positive whole number.";
             }
         }
 
@@ -737,8 +741,11 @@ export const action = async ({ request }) => {
             errors.minimumQuantity = "Enter a valid minimum quantity.";
         }
 
-        if (usageLimit && Number(usageLimit) <= 0) {
-            errors.usageLimit = "Usage limit must be greater than 0.";
+        if (
+            usageLimit &&
+            (!Number.isInteger(Number(usageLimit)) || Number(usageLimit) <= 0)
+        ) {
+            errors.usageLimit = "Usage limit must be a positive whole number.";
         }
 
         if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
@@ -1037,6 +1044,11 @@ export default function DiscountCreatePage() {
 
     const groupValue = getGroupKeyFromDiscountType(groupConfig.discountType) || group;
     const state = useDiscountWizardState({ groupConfig, template, groupValue });
+
+    // useEffect(() => {
+    //     console.log(`Loader groupConfig: ${group} : ${JSON.stringify(groupConfig)}`);
+    // }, [ groupConfig ])
+
 
     useEffect(() => {
         if (!errors) return;

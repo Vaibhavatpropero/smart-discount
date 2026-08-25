@@ -1,5 +1,6 @@
 // app/routes/app.discounts-edit.jsx
 import { boundary } from "@shopify/shopify-app-react-router/server";
+// import { useEffect } from "react";
 import { data, Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import prisma from "../db.server.js";
 import {
@@ -23,6 +24,10 @@ import {
 } from "../components/discount-wizard/WizardShell.jsx";
 import { useDiscountWizardState } from "../components/discount-wizard/useDiscountWizardState.js";
 import { RouteErrorFallback } from "../components";
+import hydrateSelectedResource from "../utils/hydrateSelectedResource.server.js"
+// import { logger } from "../utils/logger.server.js";
+
+const SRC = "app.discounts-edit";
 
 const GROUP_CONFIG = {
     order: {
@@ -56,7 +61,7 @@ const GROUP_CONFIG = {
         family: "BXGY",
         discountType: "BXGY",
         method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC" ],
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Buy X get Y",
         shortTitle: "BXGY",
         description: "Create a BOGO or multi-buy promotion.",
@@ -67,7 +72,7 @@ const GROUP_CONFIG = {
     shipping: {
         key: "shipping",
         family: "FREE_SHIPPING",
-        discountType: "FREESHIPPING",
+        discountType: "FREE_SHIPPING",
         method: "AUTOMATIC",
         supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Free shipping discount",
@@ -90,7 +95,7 @@ function getGroupKeyFromDiscountType(discountType) {
             return "product";
         case "BXGY":
             return "bxgy";
-        case "FREESHIPPING":
+        case "FREE_SHIPPING":
             return "shipping";
         case "ORDER_FIXED":
         case "ORDER_PERCENTAGE":
@@ -361,30 +366,6 @@ function buildInitialState(discount, group) {
     };
 }
 
-async function hydrateResourceSelection({ request, type, ids }) {
-    if (!Array.isArray(ids) || ids.length === 0) return [];
-
-    const url = new URL(request.url);
-    url.pathname = "/app/api/resource-search";
-    url.search = new URLSearchParams({
-        type,
-        ids: ids.join(","),
-    }).toString();
-
-    const response = await fetch(url.toString(), {
-        headers: {
-            cookie: request.headers.get("cookie") || "",
-        },
-    });
-
-    if (!response.ok) {
-        return [];
-    }
-
-    const json = await response.json();
-    return Array.isArray(json?.results) ? json.results : [];
-}
-
 export async function loader({ request }) {
     const { admin } = await authenticate.admin(request);
     const context = await requireCreateDiscountAccess(request);
@@ -434,8 +415,8 @@ export async function loader({ request }) {
 
     const hydratedTargetProducts =
         group === "product" && Array.isArray(discount.targetProducts) && discount.targetProducts.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "product",
                 ids: discount.targetProducts,
             })
@@ -443,8 +424,8 @@ export async function loader({ request }) {
 
     const hydratedTargetCollections =
         group === "product" && Array.isArray(discount.targetCollections) && discount.targetCollections.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "collection",
                 ids: discount.targetCollections,
             })
@@ -454,8 +435,8 @@ export async function loader({ request }) {
         group === "bxgy" &&
             Array.isArray(discount.bxgyConfig?.customerBuysProducts) &&
             discount.bxgyConfig.customerBuysProducts.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "product",
                 ids: discount.bxgyConfig.customerBuysProducts,
             })
@@ -465,8 +446,8 @@ export async function loader({ request }) {
         group === "bxgy" &&
             Array.isArray(discount.bxgyConfig?.customerBuysCollections) &&
             discount.bxgyConfig.customerBuysCollections.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "collection",
                 ids: discount.bxgyConfig.customerBuysCollections,
             })
@@ -476,8 +457,8 @@ export async function loader({ request }) {
         group === "bxgy" &&
             Array.isArray(discount.bxgyConfig?.customerGetsProducts) &&
             discount.bxgyConfig.customerGetsProducts.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "product",
                 ids: discount.bxgyConfig.customerGetsProducts,
             })
@@ -487,8 +468,8 @@ export async function loader({ request }) {
         group === "bxgy" &&
             Array.isArray(discount.bxgyConfig?.customerGetsCollections) &&
             discount.bxgyConfig.customerGetsCollections.length > 0
-            ? await hydrateResourceSelection({
-                request,
+            ? await hydrateSelectedResource({
+                admin,
                 type: "collection",
                 ids: discount.bxgyConfig.customerGetsCollections,
             })
@@ -760,9 +741,12 @@ export const action = async ({ request }) => {
                 "Add at least one reward collection.";
         }
 
-        if (usesPerOrderLimitRaw && Number(usesPerOrderLimitRaw) <= 0) {
-            errors.bxgyUsesPerOrderLimit =
-                "Uses per order must be greater than 0.";
+        if (
+            usesPerOrderLimitRaw &&
+            (!Number.isInteger(Number(usesPerOrderLimitRaw)) ||
+                Number(usesPerOrderLimitRaw) <= 0)
+        ) {
+            errors.bxgyUsesPerOrderLimit = "Uses per order must be a positive whole number.";
         }
     }
 
@@ -808,8 +792,11 @@ export const action = async ({ request }) => {
         errors.minimumQuantity = "Enter a valid minimum quantity.";
     }
 
-    if (usageLimit && Number(usageLimit) <= 0) {
-        errors.usageLimit = "Usage limit must be greater than 0.";
+    if (
+        usageLimit &&
+        (!Number.isInteger(Number(usageLimit)) || Number(usageLimit) <= 0)
+    ) {
+        errors.usageLimit = "Usage limit must be a positive whole number.";
     }
 
     if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
@@ -1112,6 +1099,16 @@ export default function DiscountEditRoute() {
     const errors = actionData?.errors || {};
     const busy = navigation.state !== "idle";
 
+    // DEBUG:
+    // useEffect(() => {
+    //     console.log("initialState bxgy", {
+    //         bxgyBuyProducts: initialState?.bxgyBuyProducts,
+    //         bxgyBuyCollections: initialState?.bxgyBuyCollections,
+    //         bxgyGetProducts: initialState?.bxgyGetProducts,
+    //         bxgyGetCollections: initialState?.bxgyGetCollections,
+    //     });
+    // }, [ initialState ])
+
     const state = useDiscountWizardState({
         groupConfig,
         template: null,
@@ -1205,51 +1202,51 @@ export default function DiscountEditRoute() {
                         />
                     </div>
 
-                    <StickyActionBar>
-                        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-between">
+                    {/* <StickyActionBar> */}
+                    <div className="flex w-full flex-col gap-3 m-3 py-3 sm:flex-row sm:justify-between">
+                        <button
+                            type="button"
+                            onClick={goBack}
+                            disabled={state.currentStep === 0}
+                            className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                            Back
+                        </button>
+
+                        {!isLastStep ? (
                             <button
                                 type="button"
-                                onClick={goBack}
-                                disabled={state.currentStep === 0}
-                                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                                onClick={goNext}
+                                disabled={!state.canGoToStep(state.currentStep + 1)}
+                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
                             >
-                                Back
+                                Continue
                             </button>
-
-                            {!isLastStep ? (
+                        ) : (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                                 <button
-                                    type="button"
-                                    onClick={goNext}
-                                    disabled={!state.canGoToStep(state.currentStep + 1)}
-                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                                    type="submit"
+                                    name="intent"
+                                    value="draft"
+                                    disabled={busy}
+                                    className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                                 >
-                                    Continue
+                                    Save draft changes
                                 </button>
-                            ) : (
-                                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                                    <button
-                                        type="submit"
-                                        name="intent"
-                                        value="draft"
-                                        disabled={busy}
-                                        className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                    >
-                                        Save draft changes
-                                    </button>
 
-                                    <button
-                                        type="submit"
-                                        name="intent"
-                                        value="publish"
-                                        disabled={busy}
-                                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        Publish to Shopify
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </StickyActionBar>
+                                <button
+                                    type="submit"
+                                    name="intent"
+                                    value="publish"
+                                    disabled={busy}
+                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    Publish to Shopify
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    {/* </StickyActionBar> */}
                 </Form>
             </div>
         </div>

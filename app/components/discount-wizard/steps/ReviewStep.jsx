@@ -1,4 +1,5 @@
 // app/components/discount-wizard/steps/ReviewStep.jsx
+import { useEffect } from "react";
 import { getCurrencySymbol } from "../../../utils/currency.js";
 
 function formatBxgySummary(state, symbol) {
@@ -47,6 +48,11 @@ export default function ReviewStep({ state, groupConfig, shopCurrency }) {
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
 
+    useEffect(() => {
+        console.log(`Form final state: ${JSON.stringify(state)}`);
+    }, [ state ])
+
+
     const valueLabel = state.isPercentage
         ? `${state.discountValue || 0}% off`
         : `${symbol}${state.discountValue || 0} off`;
@@ -62,7 +68,10 @@ export default function ReviewStep({ state, groupConfig, shopCurrency }) {
         ? [
             { label: "Title", value: state.title },
             { label: "Discount family", value: groupConfig.title },
-            { label: "Method", value: "Automatic" },
+            {
+                label: "Method",
+                value: state.method === "CODE" ? `Code: ${state.discountCode.toUpperCase()}` : "Automatic",
+            },
             { label: "BXGY rule", value: formatBxgySummary(state, symbol) },
             { label: "Usage limit", value: state.usageLimit || "Unlimited" },
             { label: "Uses per order", value: state.bxgyUsesPerOrderLimit || "Unlimited" },

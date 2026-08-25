@@ -1,6 +1,9 @@
-// app/routes/app.api.resource-search.jsx
+// app/routes/api.resource-search.jsx
 import { data } from "react-router";
 import { authenticate } from "../shopify.server.js";
+import { logger } from "../utils/logger.server.js";
+
+const SRC = "api.resource-search"
 
 const PRODUCT_QUERY = `#graphql
   query SearchProducts($query: String!, $first: Int!) {
@@ -85,7 +88,7 @@ function normalizeProduct(node) {
     type: "product",
     title: node.title,
     handle: node.handle,
-    description: node.description || null,
+    description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
     status: node.status,
     image: node.featuredImage?.url || null,
     priceLabel: price ? `${price.amount} ${price.currencyCode}` : null,
@@ -99,7 +102,7 @@ function normalizeCollection(node) {
     type: "collection",
     title: node.title,
     handle: node.handle,
-    description: node.description || null,
+    description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
     status: "ACTIVE",
     image: node.image?.url || null,
     countLabel: `${node.productsCount?.count ?? 0} products`,
@@ -118,6 +121,7 @@ function parseIdsParam(value) {
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const url = new URL(request.url);
+  logger.info(SRC, "Request query URL: ", url);
 
   const type = String(url.searchParams.get("type") || "product").toLowerCase();
   const term = String(url.searchParams.get("q") || "").trim();
@@ -181,6 +185,8 @@ export const loader = async ({ request }) => {
   const results = edges
     .map((edge) => normalizeProduct(edge.node))
     .filter((item) => !excludeIds.has(item.id));
+
+  logger.info(SRC, "Response result: ", results);
 
   return data({ results });
 };

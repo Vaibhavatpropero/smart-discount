@@ -1,8 +1,21 @@
 // app/components/discount-wizard/steps/ConditionsStep.jsx
+// import { useEffect } from "react";
 import { ResourcePicker } from "../../index.js";
 
 export default function ConditionsStep({ state, errors, showTargeting, groupConfig, shopCurrency }) {
     const isBxgy = groupConfig.discountType === "BXGY";
+
+    // DEBUG:
+    // useEffect(() => {
+    //     console.log("conditions selected", {
+    //         buyType: state.bxgyBuyTargetType,
+    //         buyProducts: state.bxgyBuyProducts,
+    //         buyCollections: state.bxgyBuyCollections,
+    //         getType: state.bxgyGetTargetType,
+    //         getProducts: state.bxgyGetProducts,
+    //         getCollections: state.bxgyGetCollections,
+    //     });
+    // }, [ state ])
 
     if (isBxgy) {
         return (

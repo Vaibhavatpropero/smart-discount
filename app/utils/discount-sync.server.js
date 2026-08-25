@@ -27,6 +27,15 @@ const BXGY_AUTOMATIC_MUTATION = `#graphql
   }
 `;
 
+const BXGY_CODE_MUTATION = `#graphql
+  mutation CreateCodeBxgyDiscount($bxgyCodeDiscount: DiscountCodeBxgyInput!) {
+    discountCodeBxgyCreate(bxgyCodeDiscount: $bxgyCodeDiscount) {
+        codeDiscountNode { id }
+        userErrors { field message }
+    }
+  }
+`;
+
 const FREE_SHIPPING_AUTOMATIC_MUTATION = `#graphql
   mutation CreateAutomaticFreeShippingDiscount($freeShippingAutomaticDiscount: DiscountAutomaticFreeShippingInput!) {
     discountAutomaticFreeShippingCreate(freeShippingAutomaticDiscount: $freeShippingAutomaticDiscount) {
@@ -51,6 +60,17 @@ function toMoneyString(value) {
         throw new Error("Money value must be a valid non-negative number.");
     }
     return String(num);
+}
+
+function toPositiveIntegerOrNull(value, fieldName) {
+    if (value === "" || value == null) return null;
+
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) {
+        throw new Error(`${fieldName} must be a positive integer.`);
+    }
+
+    return Math.trunc(num);
 }
 
 function buildBxgyItems(products, collections) {
@@ -193,7 +213,7 @@ function buildMinimumRequirement(discount) {
 
         return {
             quantity: {
-                greaterThanOrEqualToQuantity: String(Math.trunc(qty)),
+                greaterThanOrEqualToQuantity: Math.trunc(qty),
             },
         };
     }
@@ -211,12 +231,20 @@ function buildCombinesWith(discount) {
 
 function buildStartsAt(discount) {
     const starts = discount.startsAt ? new Date(discount.startsAt) : new Date();
+    if (Number.isNaN(starts.getTime())) {
+        throw new Error("Invalid start date value.");
+    }
     return starts.toISOString();
 }
 
 function buildEndsAt(discount) {
     if (!discount.endsAt) return null;
-    return new Date(discount.endsAt).toISOString();
+
+    const ends = new Date(discount.endsAt);
+    if (Number.isNaN(ends.getTime())) {
+        throw new Error("Invalid end date value.");
+    }
+    return ends.toISOString();
 }
 
 function buildFreeShippingDestination(discount) {
@@ -284,7 +312,7 @@ async function createCodeDiscount({ admin, discount }) {
                 customerSelection: { all: true },
                 customerGets: buildCustomerGets(discount),
                 minimumRequirement: buildMinimumRequirement(discount),
-                usageLimit: discount.usageLimit ? Number(discount.usageLimit) : null,
+                usageLimit: toPositiveIntegerOrNull(discount.usageLimit, "Usage limit"),
                 appliesOncePerCustomer: Boolean(discount.appliesOncePerCustomer),
                 combinesWith: buildCombinesWith(discount),
             },
@@ -332,9 +360,63 @@ async function createAutomaticDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+async function createCodeBxgyDiscount({ admin, discount }) {
+    const bxgy = discount.bxgyConfig;
+    if (!bxgy) throw new Error("Missing BXGY configuration for this discount.");
+
+    const code =
+        discount.shopifyDiscountCode?.trim() ||
+        discount.discountCode?.trim() ||
+        discount.title.toUpperCase().replace(/\s+/g, "");
+
+    if (!code) {
+        throw new Error("A discount code is required when method is CODE.");
+    }
+
+    const usesPerOrderLimit = toPositiveIntegerOrNull(
+        discount.usesPerOrderLimit,
+        "Uses per order limit"
+    );
+
+    const response = await admin.graphql(BXGY_CODE_MUTATION, {
+        variables: {
+            bxgyCodeDiscount: {
+                title: discount.title,
+                code,
+                context: { all: "ALL" },
+                startsAt: buildStartsAt(discount),
+                endsAt: buildEndsAt(discount),
+                customerBuys: buildCustomerBuysBxgy(bxgy),
+                customerGets: buildCustomerGetsBxgy(bxgy),
+                usesPerOrderLimit: usesPerOrderLimit ?? null,
+                combinesWith: buildCombinesWith(discount),
+            },
+        },
+    });
+
+    const json = await response.json();
+    assertGraphqlSucceeded(json, "discountCodeBxgyCreate");
+    assertNoUserErrors(
+        json?.data?.discountCodeBxgyCreate?.userErrors,
+        "discountCodeBxgyCreate"
+    );
+
+    const node = json?.data?.discountCodeBxgyCreate?.codeDiscountNode;
+    if (!node?.id) {
+        throw new Error("Shopify did not return a discount node id for the BXGY code discount.");
+    }
+
+    return { shopifyDiscountId: node.id };
+}
+
 async function createAutomaticBxgyDiscount({ admin, discount }) {
     const bxgy = discount.bxgyConfig;
     if (!bxgy) throw new Error("Missing BXGY configuration for this discount.");
+
+    const usesPerOrderLimit = toPositiveIntegerOrNull(
+        discount.usesPerOrderLimit,
+        "Uses per order limit"
+    );
 
     const response = await admin.graphql(BXGY_AUTOMATIC_MUTATION, {
         variables: {
@@ -344,9 +426,7 @@ async function createAutomaticBxgyDiscount({ admin, discount }) {
                 endsAt: buildEndsAt(discount),
                 customerBuys: buildCustomerBuysBxgy(bxgy),
                 customerGets: buildCustomerGetsBxgy(bxgy),
-                usesPerOrderLimit: discount.usesPerOrderLimit
-                    ? String(discount.usesPerOrderLimit)
-                    : null,
+                usesPerOrderLimit: usesPerOrderLimit ?? null,
                 combinesWith: buildCombinesWith(discount),
             },
         },
@@ -464,7 +544,13 @@ export async function pushDiscountToShopify({ admin, discount }) {
     ).toLowerCase();
 
     if (discountType === "BXGY") {
-        return createAutomaticBxgyDiscount({ admin, discount });
+        if (discount.method === "CODE") {
+            return createCodeBxgyDiscount({ admin, discount });
+        }
+        if (discount.method === "AUTOMATIC") {
+            return createAutomaticBxgyDiscount({ admin, discount });
+        }
+        throw new Error(`Unsupported BXGY discount method: ${discount.method}`);
     }
 
     if (discountType === "FREE_SHIPPING") {
