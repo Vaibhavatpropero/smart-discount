@@ -1,5 +1,19 @@
 // app/utils/discount-sync.server.js
 
+// ---------------------------------------------------------------------------
+// GraphQL Mutation Strings
+// ---------------------------------------------------------------------------
+
+/**
+ * Mutation: discountAutomaticBasicCreate
+ * Creates an automatic amount-off discount (percentage or fixed) applied at
+ * cart and checkout without a code.
+ *
+ * Input type: DiscountAutomaticBasicInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountAutomaticBasicCreate
+ *
+ * @see DISCOUNT_TYPES.AUTOMATIC_BASIC for full supported variable reference
+ */
 const ORDER_AUTOMATIC_MUTATION = `#graphql
   mutation CreateAutomaticOrderDiscount($discount: DiscountAutomaticBasicInput!) {
     discountAutomaticBasicCreate(automaticBasicDiscount: $discount) {
@@ -9,6 +23,16 @@ const ORDER_AUTOMATIC_MUTATION = `#graphql
   }
 `;
 
+/**
+ * Mutation: discountCodeBasicCreate
+ * Creates a code-based amount-off discount (percentage or fixed) applied when
+ * a customer enters a code at cart/checkout.
+ *
+ * Input type: DiscountCodeBasicInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountCodeBasicCreate
+ *
+ * @see DISCOUNT_TYPES.CODE_BASIC for full supported variable reference
+ */
 const ORDER_CODE_MUTATION = `#graphql
   mutation CreateCodeOrderDiscount($discount: DiscountCodeBasicInput!) {
     discountCodeBasicCreate(basicCodeDiscount: $discount) {
@@ -18,6 +42,16 @@ const ORDER_CODE_MUTATION = `#graphql
   }
 `;
 
+/**
+ * Mutation: discountAutomaticBxgyCreate
+ * Creates an automatic Buy X Get Y discount applied at cart/checkout
+ * without requiring a code.
+ *
+ * Input type: DiscountAutomaticBxgyInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountAutomaticBxgyCreate
+ *
+ * @see DISCOUNT_TYPES.AUTOMATIC_BXGY for full supported variable reference
+ */
 const BXGY_AUTOMATIC_MUTATION = `#graphql
   mutation CreateAutomaticBxgyDiscount($automaticBxgyDiscount: DiscountAutomaticBxgyInput!) {
     discountAutomaticBxgyCreate(automaticBxgyDiscount: $automaticBxgyDiscount) {
@@ -27,6 +61,15 @@ const BXGY_AUTOMATIC_MUTATION = `#graphql
   }
 `;
 
+/**
+ * Mutation: discountCodeBxgyCreate
+ * Creates a code-based Buy X Get Y discount applied when a customer enters a code.
+ *
+ * Input type: DiscountCodeBxgyInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountCodeBxgyCreate
+ *
+ * @see DISCOUNT_TYPES.CODE_BXGY for full supported variable reference
+ */
 const BXGY_CODE_MUTATION = `#graphql
   mutation CreateCodeBxgyDiscount($bxgyCodeDiscount: DiscountCodeBxgyInput!) {
     discountCodeBxgyCreate(bxgyCodeDiscount: $bxgyCodeDiscount) {
@@ -36,6 +79,15 @@ const BXGY_CODE_MUTATION = `#graphql
   }
 `;
 
+/**
+ * Mutation: discountAutomaticFreeShippingCreate
+ * Creates an automatic free shipping discount applied at checkout without a code.
+ *
+ * Input type: DiscountAutomaticFreeShippingInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountAutomaticFreeShippingCreate
+ *
+ * @see DISCOUNT_TYPES.AUTOMATIC_FREE_SHIPPING for full supported variable reference
+ */
 const FREE_SHIPPING_AUTOMATIC_MUTATION = `#graphql
   mutation CreateAutomaticFreeShippingDiscount($freeShippingAutomaticDiscount: DiscountAutomaticFreeShippingInput!) {
     discountAutomaticFreeShippingCreate(freeShippingAutomaticDiscount: $freeShippingAutomaticDiscount) {
@@ -45,6 +97,15 @@ const FREE_SHIPPING_AUTOMATIC_MUTATION = `#graphql
   }
 `;
 
+/**
+ * Mutation: discountCodeFreeShippingCreate
+ * Creates a code-based free shipping discount applied when a customer enters a code.
+ *
+ * Input type: DiscountCodeFreeShippingInput
+ * Docs: https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountCodeFreeShippingCreate
+ *
+ * @see DISCOUNT_TYPES.CODE_FREE_SHIPPING for full supported variable reference
+ */
 const FREE_SHIPPING_CODE_MUTATION = `#graphql
   mutation CreateCodeFreeShippingDiscount($freeShippingCodeDiscount: DiscountCodeFreeShippingInput!) {
     discountCodeFreeShippingCreate(freeShippingCodeDiscount: $freeShippingCodeDiscount) {
@@ -54,14 +115,35 @@ const FREE_SHIPPING_CODE_MUTATION = `#graphql
   }
 `;
 
+// ---------------------------------------------------------------------------
+// Shared Utility Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerces a value to a money string for Shopify GraphQL (e.g. "10.00").
+ * Shopify expects MoneyInput amounts as plain decimal strings, not numbers.
+ *
+ * @param {number | string} value - A non-negative numeric value
+ * @returns {string} Decimal string representation, e.g. "9.99"
+ * @throws {Error} If value is not a valid non-negative finite number
+ */
 function toMoneyString(value) {
     const num = Number(value);
     if (!Number.isFinite(num) || num < 0) {
         throw new Error("Money value must be a valid non-negative number.");
     }
-    return String(num);
+    return num.toFixed(2); // "10.00" instead of "10"
 }
 
+/**
+ * Coerces a value to a positive integer or returns null if empty/absent.
+ * Used for optional integer fields like `usageLimit` and `usesPerOrderLimit`.
+ *
+ * @param {number | string | null | undefined} value - Candidate integer value
+ * @param {string} fieldName - Used in the error message for context
+ * @returns {number | null} Truncated positive integer, or null
+ * @throws {Error} If value is present but not a positive finite number
+ */
 function toPositiveIntegerOrNull(value, fieldName) {
     if (value === "" || value == null) return null;
 
@@ -73,6 +155,62 @@ function toPositiveIntegerOrNull(value, fieldName) {
     return Math.trunc(num);
 }
 
+/**
+ * Builds the BXGY discount context expected by Shopify.
+ *
+ * Priority:
+ * 1. customer segment restriction
+ * 2. market restriction
+ * 3. explicit all-customers fallback
+ *
+ * NOTE:
+ * Shopify rejected omitted context with:
+ * `bxgyCodeDiscount.context: Context can't be blank`
+ * so BXGY code discounts should always send a context object.
+ *
+ * @param {object} discount
+ * @param {string[]} [discount.contextCustomerSegmentIds]
+ * @param {string[]} [discount.contextMarketIds]
+ * @returns {object}
+ */
+function buildBxgyContext(discount) {
+    const segmentIds = Array.isArray(discount.contextCustomerSegmentIds)
+        ? discount.contextCustomerSegmentIds.filter(Boolean)
+        : [];
+
+    if (segmentIds.length > 0) {
+        return {
+            customerSegments: {
+                add: segmentIds,
+            },
+        };
+    }
+
+    const marketIds = Array.isArray(discount.contextMarketIds)
+        ? discount.contextMarketIds.filter(Boolean)
+        : [];
+
+    if (marketIds.length > 0) {
+        return {
+            markets: {
+                add: marketIds,
+            },
+        };
+    }
+
+    return {
+        all: "ALL",
+    };
+}
+
+/**
+ * Builds a Shopify discount item selector for BXGY `customerBuys`/`customerGets`.
+ * Priority: collections > products > all items.
+ *
+ * @param {string[]} products    - Array of product GIDs
+ * @param {string[]} collections - Array of collection GIDs
+ * @returns {{ collections: object } | { products: object } | { all: true }}
+ */
 function buildBxgyItems(products, collections) {
     const productIds = Array.isArray(products) ? products.filter(Boolean) : [];
     const collectionIds = Array.isArray(collections) ? collections.filter(Boolean) : [];
@@ -86,11 +224,32 @@ function buildBxgyItems(products, collections) {
     return { all: true };
 }
 
+/**
+ * Builds the `customerBuys` field for a BXGY discount.
+ * Supports purchase trigger by AMOUNT (subtotal) or QUANTITY (item count).
+ *
+ * @param {object} bxgy
+ * @param {"AMOUNT" | "QUANTITY"} bxgy.customerBuysType    - Purchase trigger type
+ * @param {number | string}       bxgy.customerBuysAmount  - Required if type is AMOUNT; MoneyInput string e.g. "50.00"
+ * @param {number | string}       bxgy.customerBuysQty     - Required if type is QUANTITY; positive integer
+ * @param {string[]}              bxgy.customerBuysProducts    - Product GIDs for item scope
+ * @param {string[]}              bxgy.customerBuysCollections - Collection GIDs for item scope
+ * @returns {{ value: object, items: object }}
+ */
 function buildCustomerBuysBxgy(bxgy) {
-    const value =
-        bxgy.customerBuysType === "AMOUNT"
-            ? { amount: toMoneyString(bxgy.customerBuysAmount) }
-            : { quantity: String(Math.trunc(Number(bxgy.customerBuysQty))) };
+    let value;
+
+    if (bxgy.customerBuysType === "AMOUNT") {
+        value = { amount: toMoneyString(bxgy.customerBuysAmount) };
+    } else if (bxgy.customerBuysType === "QUANTITY") {
+        const qty = Math.trunc(Number(bxgy.customerBuysQty));
+        if (!Number.isFinite(qty) || qty <= 0) {
+            throw new Error("BXGY customerBuysQty must be a positive integer.");
+        }
+        value = { quantity: String(qty) };
+    } else {
+        throw new Error(`Unsupported BXGY customerBuysType: ${bxgy.customerBuysType}`);
+    }
 
     return {
         value,
@@ -98,6 +257,19 @@ function buildCustomerBuysBxgy(bxgy) {
     };
 }
 
+/**
+ * Builds the discount `effect` for the BXGY `customerGets.value.discountOnQuantity.effect` field.
+ * Supports three effect types:
+ *   - FREE            → percentage: 1 (100% off, i.e. free)
+ *   - AMOUNT_OFF_EACH → amount: string (fixed amount off each item)
+ *   - PERCENTAGE      → percentage: 0–1 decimal (e.g. 0.20 for 20%)
+ *
+ * @param {object} bxgy
+ * @param {"FREE" | "AMOUNT_OFF_EACH" | "PERCENTAGE"} bxgy.customerGetsEffect
+ * @param {number | string} bxgy.customerGetsAmount     - Required if AMOUNT_OFF_EACH
+ * @param {number | string} bxgy.customerGetsPercentage - Required if PERCENTAGE; value between 0–100
+ * @returns {{ percentage: number } | { amount: string }}
+ */
 function buildBxgyEffect(bxgy) {
     if (bxgy.customerGetsEffect === "FREE") {
         return { percentage: 1 };
@@ -123,6 +295,19 @@ function buildBxgyEffect(bxgy) {
     };
 }
 
+/**
+ * Builds the `customerGets` field for a BXGY discount.
+ * Represents what the customer receives when the `customerBuys` condition is met.
+ *
+ * @param {object} bxgy
+ * @param {number | string}       bxgy.customerGetsQty         - Quantity of items rewarded (default 1)
+ * @param {string[]}              bxgy.customerGetsProducts    - Product GIDs for reward scope
+ * @param {string[]}              bxgy.customerGetsCollections - Collection GIDs for reward scope
+ * @param {"FREE" | "AMOUNT_OFF_EACH" | "PERCENTAGE"} bxgy.customerGetsEffect
+ * @param {number | string}       [bxgy.customerGetsAmount]     - Required if effect is AMOUNT_OFF_EACH
+ * @param {number | string}       [bxgy.customerGetsPercentage] - Required if effect is PERCENTAGE (0–100)
+ * @returns {{ items: object, value: { discountOnQuantity: object } }}
+ */
 function buildCustomerGetsBxgy(bxgy) {
     const quantity = Math.trunc(Number(bxgy.customerGetsQty || 1));
     if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -140,6 +325,16 @@ function buildCustomerGetsBxgy(bxgy) {
     };
 }
 
+/**
+ * Builds the `customerGets.value` field for order/product discounts.
+ * Shopify requires either a `percentage` (0–1 decimal) or a `discountAmount`.
+ *
+ * @param {object}  discount
+ * @param {number}  discount.discountValue    - Positive numeric discount value
+ * @param {boolean} discount.isPercentage     - If true, treat value as percentage (0–100 scale)
+ * @returns {{ percentage: number } | { discountAmount: { amount: string, appliesOnEachItem: false } }}
+ * @throws {Error} If discountValue is not a positive finite number
+ */
 function buildValue(discount) {
     const rawValue = Number(discount.discountValue);
 
@@ -154,11 +349,23 @@ function buildValue(discount) {
     return {
         discountAmount: {
             amount: toMoneyString(rawValue),
-            appliesOnEachItem: false,
+            appliesOnEachItem: Boolean(discount.appliesOnEachItem ?? false),
         },
     };
 }
 
+/**
+ * Builds the `customerGets.items` field for order/product discounts.
+ * Determines which items the discount applies to.
+ * Priority: all > products > collections.
+ *
+ * @param {object}   discount
+ * @param {string}   [discount.group | discount.discountGroup]   - "order" | "product"
+ * @param {boolean}  [discount.appliesToAll]                     - If true, applies to all items regardless of group
+ * @param {string[]} [discount.targetProducts]                   - Product GIDs (used if group is "product")
+ * @param {string[]} [discount.targetCollections]                - Collection GIDs (used if group is "product")
+ * @returns {{ all: true } | { products: object } | { collections: object }}
+ */
 function buildItems(discount) {
     const group = String(discount.group || discount.discountGroup || "order").toLowerCase();
     const appliesToAll = Boolean(discount.appliesToAll);
@@ -193,6 +400,13 @@ function buildItems(discount) {
     return { all: true };
 }
 
+/**
+ * Combines `value` and `items` into the `customerGets` payload used by
+ * `discountAutomaticBasicCreate` and `discountCodeBasicCreate`.
+ *
+ * @param {object} discount - Full discount object passed to sync functions
+ * @returns {{ value: object, items: object }}
+ */
 function buildCustomerGets(discount) {
     return {
         value: buildValue(discount),
@@ -200,6 +414,17 @@ function buildCustomerGets(discount) {
     };
 }
 
+/**
+ * Builds the `minimumRequirement` field, which gates when the discount applies.
+ * Supports two modes: SUBTOTAL (minimum order value) or QUANTITY (minimum item count).
+ * Returns null if no minimum is set or values are invalid/empty.
+ *
+ * @param {object}          discount
+ * @param {"SUBTOTAL" | "QUANTITY" | null} discount.minimumType
+ * @param {number | string} [discount.minimumSubtotal]  - Required if minimumType is SUBTOTAL; MoneyInput
+ * @param {number | string} [discount.minimumQuantity]  - Required if minimumType is QUANTITY; positive integer
+ * @returns {{ subtotal: object } | { quantity: object } | null}
+ */
 function buildMinimumRequirement(discount) {
     if (discount.minimumType === "SUBTOTAL") {
         const amount = Number(discount.minimumSubtotal);
@@ -213,7 +438,7 @@ function buildMinimumRequirement(discount) {
 
         return {
             quantity: {
-                greaterThanOrEqualToQuantity: Math.trunc(qty),
+                greaterThanOrEqualToQuantity: String(Math.trunc(qty)),
             },
         };
     }
@@ -221,6 +446,16 @@ function buildMinimumRequirement(discount) {
     return null;
 }
 
+/**
+ * Builds the `combinesWith` field, controlling whether this discount stacks
+ * with other active discounts.
+ *
+ * @param {object}  discount
+ * @param {boolean} [discount.combineWithOrderDiscounts]    - Allow stacking with order discounts
+ * @param {boolean} [discount.combineWithProductDiscounts]  - Allow stacking with product discounts
+ * @param {boolean} [discount.combineWithShippingDiscounts] - Allow stacking with shipping discounts
+ * @returns {{ orderDiscounts: boolean, productDiscounts: boolean, shippingDiscounts: boolean }}
+ */
 function buildCombinesWith(discount) {
     return {
         orderDiscounts: Boolean(discount.combineWithOrderDiscounts),
@@ -229,6 +464,15 @@ function buildCombinesWith(discount) {
     };
 }
 
+/**
+ * Builds the `startsAt` ISO 8601 timestamp string.
+ * Defaults to the current time if no `startsAt` is provided.
+ *
+ * @param {object}         discount
+ * @param {string | Date}  [discount.startsAt] - ISO date string or Date object
+ * @returns {string} ISO 8601 UTC timestamp, e.g. "2025-01-01T00:00:00.000Z"
+ * @throws {Error} If provided value parses to an invalid date
+ */
 function buildStartsAt(discount) {
     const starts = discount.startsAt ? new Date(discount.startsAt) : new Date();
     if (Number.isNaN(starts.getTime())) {
@@ -237,6 +481,14 @@ function buildStartsAt(discount) {
     return starts.toISOString();
 }
 
+/**
+ * Builds the `endsAt` ISO 8601 timestamp string, or returns null for open-ended discounts.
+ *
+ * @param {object}         discount
+ * @param {string | Date}  [discount.endsAt] - ISO date string or Date object; omit for no end date
+ * @returns {string | null} ISO 8601 UTC timestamp or null
+ * @throws {Error} If provided value parses to an invalid date
+ */
 function buildEndsAt(discount) {
     if (!discount.endsAt) return null;
 
@@ -247,6 +499,16 @@ function buildEndsAt(discount) {
     return ends.toISOString();
 }
 
+/**
+ * Builds the `destination` field for free shipping discounts.
+ * Supports specific country codes or all destinations.
+ *
+ * @param {object}   discount
+ * @param {string[]} [discount.shippingDestinationCountries]
+ *   Array of ISO 3166-1 alpha-2 country codes, e.g. ["US", "CA"].
+ *   If empty or absent, applies to all destinations.
+ * @returns {{ country: { add: string[] } } | { all: true }}
+ */
 function buildFreeShippingDestination(discount) {
     const countryCodes = Array.isArray(discount.shippingDestinationCountries)
         ? discount.shippingDestinationCountries.filter(Boolean)
@@ -259,6 +521,26 @@ function buildFreeShippingDestination(discount) {
     return { all: true };
 }
 
+/**
+ * Assembles the shared base payload for both automatic and code free shipping mutations.
+ * Handles title, dates, destination, minimum requirement, combinesWith, and optional maximumShippingPrice.
+ *
+ * @param {object}          discount
+ * @param {string}          discount.title
+ * @param {string | Date}   [discount.startsAt]
+ * @param {string | Date}   [discount.endsAt]
+ * @param {string[]}        [discount.shippingDestinationCountries]
+ * @param {"SUBTOTAL" | "QUANTITY" | null} [discount.minimumType]
+ * @param {number | string} [discount.minimumSubtotal]
+ * @param {number | string} [discount.minimumQuantity]
+ * @param {boolean}         [discount.combineWithOrderDiscounts]
+ * @param {boolean}         [discount.combineWithProductDiscounts]
+ * @param {boolean}         [discount.combineWithShippingDiscounts]
+ * @param {number | string} [discount.maximumShippingPrice]
+ *   Optional cap on qualifying shipping rates. Only rates at or below this amount
+ *   will be made free. Type: MoneyInput string, e.g. "9.99".
+ * @returns {object} Base payload for DiscountAutomaticFreeShippingInput / DiscountCodeFreeShippingInput
+ */
 function buildFreeShippingPayloadBase(discount) {
     const payload = {
         title: discount.title,
@@ -276,6 +558,18 @@ function buildFreeShippingPayloadBase(discount) {
     return payload;
 }
 
+// ---------------------------------------------------------------------------
+// Error Assertion Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Throws if the Shopify mutation returned any userErrors.
+ * userErrors are business-logic validation failures (e.g. duplicate code, invalid input).
+ *
+ * @param {Array<{ field: string[], message: string }>} userErrors
+ * @param {string} mutationName - Used in the thrown error message for traceability
+ * @throws {Error}
+ */
 function assertNoUserErrors(userErrors, mutationName) {
     if (userErrors?.length) {
         const message = userErrors
@@ -285,6 +579,15 @@ function assertNoUserErrors(userErrors, mutationName) {
     }
 }
 
+/**
+ * Throws if the GraphQL response itself contains top-level errors.
+ * These are transport/schema-level errors, distinct from userErrors
+ * (e.g. permission denied, unknown field, malformed query).
+ *
+ * @param {object} json         - Parsed GraphQL response JSON
+ * @param {string} mutationName - Used in the thrown error message for traceability
+ * @throws {Error}
+ */
 function assertGraphqlSucceeded(json, mutationName) {
     if (json?.errors?.length) {
         const message = json.errors.map((e) => e.message).join(" | ");
@@ -292,6 +595,48 @@ function assertGraphqlSucceeded(json, mutationName) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Mutation Executors — Code Discounts
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a code-based basic (order/product) discount in Shopify.
+ * Uses `discountCodeBasicCreate` mutation.
+ *
+ * Supported but NOT currently passed:
+ *   - `context`          {DiscountContextInput}  — Restrict to specific markets or customer segments.
+ *                         Shape: { markets: { add: ["gid://shopify/Market/123"] } }
+ *                            or: { customerSegments: { add: ["gid://shopify/Segment/123"] } }
+ *   - `customerSelection` {DiscountCustomerSelectionInput} — Restrict to specific customers.
+ *                         Shape: { customers: { add: ["gid://shopify/Customer/123"] } }
+ *                            or: { all: true }
+ *                         Currently hardcoded to `{ all: true }`.
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object
+ * @param {string}          params.discount.title
+ * @param {string}          [params.discount.shopifyDiscountCode] - Preferred code string
+ * @param {string}          [params.discount.discountCode]        - Fallback code string
+ * @param {string | Date}   [params.discount.startsAt]
+ * @param {string | Date}   [params.discount.endsAt]
+ * @param {number}          params.discount.discountValue
+ * @param {boolean}         params.discount.isPercentage
+ * @param {string}          [params.discount.group | discountGroup]
+ * @param {boolean}         [params.discount.appliesToAll]
+ * @param {string[]}        [params.discount.targetProducts]
+ * @param {string[]}        [params.discount.targetCollections]
+ * @param {"SUBTOTAL" | "QUANTITY" | null} [params.discount.minimumType]
+ * @param {number | string} [params.discount.minimumSubtotal]
+ * @param {number | string} [params.discount.minimumQuantity]
+ * @param {number | string} [params.discount.usageLimit]            - Max total redemptions; null = unlimited
+ * @param {boolean}         [params.discount.appliesOncePerCustomer] - Limit one use per customer
+ * @param {boolean}         [params.discount.combineWithOrderDiscounts]
+ * @param {boolean}         [params.discount.combineWithProductDiscounts]
+ * @param {boolean}         [params.discount.combineWithShippingDiscounts]
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On GraphQL errors, userErrors, or missing discount node
+ */
 async function createCodeDiscount({ admin, discount }) {
     const code =
         discount.shopifyDiscountCode?.trim() ||
@@ -331,6 +676,37 @@ async function createCodeDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+/**
+ * Creates an automatic basic (order/product) discount in Shopify.
+ * Uses `discountAutomaticBasicCreate` mutation.
+ *
+ * Supported but NOT currently passed:
+ *   - `context` {DiscountContextInput} — Restrict the automatic discount to specific
+ *     markets or customer segments. Without this, the discount applies to ALL customers.
+ *     Shape: { markets: { add: ["gid://shopify/Market/123"] } }
+ *        or: { customerSegments: { add: ["gid://shopify/Segment/123"] } }
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object
+ * @param {string}          params.discount.title
+ * @param {string | Date}   [params.discount.startsAt]
+ * @param {string | Date}   [params.discount.endsAt]
+ * @param {number}          params.discount.discountValue
+ * @param {boolean}         params.discount.isPercentage
+ * @param {string}          [params.discount.group | discountGroup]
+ * @param {boolean}         [params.discount.appliesToAll]
+ * @param {string[]}        [params.discount.targetProducts]
+ * @param {string[]}        [params.discount.targetCollections]
+ * @param {"SUBTOTAL" | "QUANTITY" | null} [params.discount.minimumType]
+ * @param {number | string} [params.discount.minimumSubtotal]
+ * @param {number | string} [params.discount.minimumQuantity]
+ * @param {boolean}         [params.discount.combineWithOrderDiscounts]
+ * @param {boolean}         [params.discount.combineWithProductDiscounts]
+ * @param {boolean}         [params.discount.combineWithShippingDiscounts]
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On GraphQL errors, userErrors, or missing discount node
+ */
 async function createAutomaticDiscount({ admin, discount }) {
     const response = await admin.graphql(ORDER_AUTOMATIC_MUTATION, {
         variables: {
@@ -360,6 +736,42 @@ async function createAutomaticDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+/**
+ * Creates a code-based Buy X Get Y discount in Shopify.
+ * Uses `discountCodeBxgyCreate` mutation.
+ *
+ * Supported but NOT currently passed:
+ *   - `context`  {DiscountContextInput} — Restrict to specific markets or customer segments.
+ *                Shape: { markets: { add: ["gid://shopify/Market/123"] } }
+ *                   or: { customerSegments: { add: ["gid://shopify/Segment/123"] } }
+ *   - `customerSelection` {DiscountCustomerSelectionInput} — Restrict to specific customers.
+ *   - `appliesOncePerCustomer` {boolean} — Limit redemption to once per customer.
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object
+ * @param {string}          params.discount.title
+ * @param {string}          [params.discount.shopifyDiscountCode]
+ * @param {string}          [params.discount.discountCode]
+ * @param {string | Date}   [params.discount.startsAt]
+ * @param {string | Date}   [params.discount.endsAt]
+ * @param {object}          params.discount.bxgyConfig             - BXGY-specific config object
+ * @param {"AMOUNT" | "QUANTITY"} params.discount.bxgyConfig.customerBuysType
+ * @param {number | string} [params.discount.bxgyConfig.customerBuysAmount]
+ * @param {number | string} [params.discount.bxgyConfig.customerBuysQty]
+ * @param {string[]}        [params.discount.bxgyConfig.customerBuysProducts]
+ * @param {string[]}        [params.discount.bxgyConfig.customerBuysCollections]
+ * @param {number | string} [params.discount.bxgyConfig.customerGetsQty]
+ * @param {string[]}        [params.discount.bxgyConfig.customerGetsProducts]
+ * @param {string[]}        [params.discount.bxgyConfig.customerGetsCollections]
+ * @param {"FREE" | "AMOUNT_OFF_EACH" | "PERCENTAGE"} params.discount.bxgyConfig.customerGetsEffect
+ * @param {number | string} [params.discount.usesPerOrderLimit]    - Max redemptions per order; null = unlimited
+ * @param {boolean}         [params.discount.combineWithOrderDiscounts]
+ * @param {boolean}         [params.discount.combineWithProductDiscounts]
+ * @param {boolean}         [params.discount.combineWithShippingDiscounts]
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On missing BXGY config, code, GraphQL errors, or userErrors
+ */
 async function createCodeBxgyDiscount({ admin, discount }) {
     const bxgy = discount.bxgyConfig;
     if (!bxgy) throw new Error("Missing BXGY configuration for this discount.");
@@ -383,7 +795,7 @@ async function createCodeBxgyDiscount({ admin, discount }) {
             bxgyCodeDiscount: {
                 title: discount.title,
                 code,
-                context: { all: "ALL" },
+                context: buildBxgyContext(discount),
                 startsAt: buildStartsAt(discount),
                 endsAt: buildEndsAt(discount),
                 customerBuys: buildCustomerBuysBxgy(bxgy),
@@ -409,6 +821,33 @@ async function createCodeBxgyDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+/**
+ * Creates an automatic Buy X Get Y discount in Shopify.
+ * Uses `discountAutomaticBxgyCreate` mutation.
+ *
+ * Supported but NOT currently passed:
+ *   - `combinesWith` — Not sent; defaults to no stacking. Add via `buildCombinesWith(discount)`.
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object
+ * @param {string}          params.discount.title
+ * @param {string | Date}   [params.discount.startsAt]
+ * @param {string | Date}   [params.discount.endsAt]
+ * @param {object}          params.discount.bxgyConfig             - BXGY-specific config object
+ * @param {"AMOUNT" | "QUANTITY"} params.discount.bxgyConfig.customerBuysType
+ * @param {number | string} [params.discount.bxgyConfig.customerBuysAmount]
+ * @param {number | string} [params.discount.bxgyConfig.customerBuysQty]
+ * @param {string[]}        [params.discount.bxgyConfig.customerBuysProducts]
+ * @param {string[]}        [params.discount.bxgyConfig.customerBuysCollections]
+ * @param {number | string} [params.discount.bxgyConfig.customerGetsQty]
+ * @param {string[]}        [params.discount.bxgyConfig.customerGetsProducts]
+ * @param {string[]}        [params.discount.bxgyConfig.customerGetsCollections]
+ * @param {"FREE" | "AMOUNT_OFF_EACH" | "PERCENTAGE"} params.discount.bxgyConfig.customerGetsEffect
+ * @param {number | string} [params.discount.usesPerOrderLimit]
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On missing BXGY config, GraphQL errors, or userErrors
+ */
 async function createAutomaticBxgyDiscount({ admin, discount }) {
     const bxgy = discount.bxgyConfig;
     if (!bxgy) throw new Error("Missing BXGY configuration for this discount.");
@@ -426,7 +865,7 @@ async function createAutomaticBxgyDiscount({ admin, discount }) {
                 endsAt: buildEndsAt(discount),
                 customerBuys: buildCustomerBuysBxgy(bxgy),
                 customerGets: buildCustomerGetsBxgy(bxgy),
-                usesPerOrderLimit: usesPerOrderLimit ?? null,
+                usesPerOrderLimit: usesPerOrderLimit != null ? String(usesPerOrderLimit) : null,
                 combinesWith: buildCombinesWith(discount),
             },
         },
@@ -447,6 +886,23 @@ async function createAutomaticBxgyDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+/**
+ * Creates an automatic free shipping discount in Shopify.
+ * Uses `discountAutomaticFreeShippingCreate` mutation.
+ * Hardcodes `appliesOnOneTimePurchase: true`.
+ *
+ * Supported but NOT currently passed:
+ *   - `appliesOnSubscription` {boolean} — Also apply the discount to subscription purchases.
+ *     Default: false. Pass alongside `appliesOnOneTimePurchase` if needed.
+ *   - `recurringCycleLimit`   {number}  — Number of subscription billing cycles the discount
+ *     applies to. Only relevant when `appliesOnSubscription` is true.
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object; see buildFreeShippingPayloadBase
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On GraphQL errors, userErrors, or missing discount node
+ */
 async function createAutomaticFreeShippingDiscount({ admin, discount }) {
     const response = await admin.graphql(FREE_SHIPPING_AUTOMATIC_MUTATION, {
         variables: {
@@ -472,6 +928,25 @@ async function createAutomaticFreeShippingDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+/**
+ * Creates a code-based free shipping discount in Shopify.
+ * Uses `discountCodeFreeShippingCreate` mutation.
+ *
+ * Supported but NOT currently passed:
+ *   - `usageLimit`          {number}  — Maximum total redemptions across all customers.
+ *   - `customerSelection`   {DiscountCustomerSelectionInput} — Currently hardcoded to `{ all: true }`.
+ *     Can be narrowed to specific customers: `{ customers: { add: ["gid://shopify/Customer/123"] } }`
+ *   - `context`             {DiscountContextInput} — Restrict to specific markets or customer segments.
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client
+ * @param {object} params.discount - Discount data object; see buildFreeShippingPayloadBase
+ * @param {string}  [params.discount.shopifyDiscountCode]
+ * @param {string}  [params.discount.discountCode]
+ * @param {boolean} [params.discount.appliesOncePerCustomer]
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} On missing code, GraphQL errors, userErrors, or missing discount node
+ */
 async function createCodeFreeShippingDiscount({ admin, discount }) {
     const code =
         discount.shopifyDiscountCode?.trim() ||
@@ -508,6 +983,17 @@ async function createCodeFreeShippingDiscount({ admin, discount }) {
     return { shopifyDiscountId: node.id };
 }
 
+// ---------------------------------------------------------------------------
+// Routing Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps a Shopify internal discount type string to a discount group key.
+ * Used to route discounts to the correct mutation executor.
+ *
+ * @param {string} discountType - e.g. "PRODUCT_PERCENTAGE", "BXGY", "FREE_SHIPPING", "ORDER_FIXED"
+ * @returns {"product" | "bxgy" | "shipping" | "app" | "order"}
+ */
 function getGroupKeyFromDiscountType(discountType) {
     switch (discountType) {
         case "PRODUCT_PERCENTAGE":
@@ -528,6 +1014,34 @@ function getGroupKeyFromDiscountType(discountType) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Routes a discount object to the correct Shopify mutation based on type and method.
+ * Entry point for all discount creation synced to Shopify Admin GraphQL.
+ *
+ * Supported discount types and methods:
+ *   - BXGY              → CODE   → discountCodeBxgyCreate
+ *   - BXGY              → AUTO   → discountAutomaticBxgyCreate
+ *   - FREE_SHIPPING     → CODE   → discountCodeFreeShippingCreate
+ *   - FREE_SHIPPING     → AUTO   → discountAutomaticFreeShippingCreate
+ *   - ORDER / PRODUCT   → CODE   → discountCodeBasicCreate
+ *   - ORDER / PRODUCT   → AUTO   → discountAutomaticBasicCreate
+ *
+ * @param {object} params
+ * @param {object} params.admin    - Shopify authenticated admin client (from `authenticate.admin`)
+ * @param {object} params.discount - Discount data object
+ * @param {string}          params.discount.title                - Required; used as discount name in Shopify
+ * @param {"CODE" | "AUTOMATIC"} params.discount.method          - Required; determines mutation used
+ * @param {string}          [params.discount.discountType]        - e.g. "ORDER_PERCENTAGE", "BXGY"
+ * @param {string}          [params.discount.type]               - Alias for discountType
+ * @param {string}          [params.discount.group]              - e.g. "order" | "product"
+ * @param {string}          [params.discount.discountGroup]      - Alias for group
+ * @returns {Promise<{ shopifyDiscountId: string }>}
+ * @throws {Error} If admin is missing, title is empty, type is unsupported, or mutation fails
+ */
 export async function pushDiscountToShopify({ admin, discount }) {
     if (!admin) {
         throw new Error("Missing authenticated admin client — cannot sync to Shopify.");
