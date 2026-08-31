@@ -333,8 +333,7 @@ model Discount {
   customerSegments Json?
 
   // ── Template origin ───────────────────────────────────────
-  templateId   String?
-  templateSlug String? // Human-readable slug for event logs / analytics
+  templateSlug String? // optional provenance / analytics only
 
   // ── Analytics (lightweight, updated async) ────────────────
   // Full analytics module will extend these later.
@@ -423,44 +422,6 @@ model DiscountEvent {
 
   @@index([discountId, createdAt])
   @@index([shopId, eventType])
-}
-
-// ─────────────────────────────────────────────────────────────
-// DISCOUNT TEMPLATE
-// Pre-built templates that merchants can use to create a discount
-// with minimum input. Managed by app admin (global, not per-store).
-// ─────────────────────────────────────────────────────────────
-
-model DiscountTemplate {
-  id   String @id @default(cuid())
-  slug String @unique // e.g. "bogo-same-product", "flash-sale-20-percent"
-
-  name        String
-  description String? @db.Text
-
-  discountType DiscountType
-  method       DiscountMethod
-
-  // JSON object whose keys match Discount model fields.
-  // Pre-fills the creation form when merchant picks this template.
-  // e.g. { "isPercentage": true, "discountValue": 20, "appliesToAll": true }
-  defaultConfig Json
-
-  // Minimum plan required to access this template
-  requiredPlan PlanName @default(FREE)
-
-  // UI metadata
-  category  String? // "BXGY" | "Seasonal" | "Flash Sale" | "Shipping" | etc.
-  iconName  String? // Lucide icon name string for template card
-  isPopular Boolean @default(false) // Featured / highlighted in UI
-  sortOrder Int     @default(0) // Display order within category
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([requiredPlan, isActive])
-  @@index([category])
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -8,12 +8,32 @@ import {
     canUseTemplate,
 } from "../utils/plan-gate.server";
 import { SquarePen } from 'lucide-react';
+import { listDiscountTemplates } from "../configs/discount-templates.js";
 import { DeleteDiscountButton, RouteErrorFallback } from "../components";
+
+const TEMPLATE_FAMILY_META = {
+    order: {
+        title: "Order discounts",
+        description: "Templates for cart-wide promotions.",
+    },
+    product: {
+        title: "Product discounts",
+        description: "Templates for product and collection campaigns.",
+    },
+    bxgy: {
+        title: "Buy X get Y",
+        description: "Templates for BOGO and reward-item offers.",
+    },
+    shipping: {
+        title: "Free shipping",
+        description: "Templates for shipping-based conversion offers.",
+    },
+};
 
 export const loader = async ({ request }) => {
     const { shop, access, trialDaysRemaining } = await getPlanContext(request);
 
-    const [ discountsRaw, templatesRaw ] = await Promise.all([
+    const [ discountsRaw ] = await Promise.all([
         prisma.discount.findMany({
             where: { shopId: shop.id },
             orderBy: { createdAt: "desc" },
@@ -35,22 +55,6 @@ export const loader = async ({ request }) => {
                 shippingDestinationCountries: true,
                 totalUsageCount: true,
                 totalSavings: true,
-                templateSlug: true,
-            },
-        }),
-        prisma.discountTemplate.findMany({
-            where: { isActive: true },
-            orderBy: [ { sortOrder: "asc" }, { name: "asc" } ],
-            select: {
-                id: true,
-                slug: true,
-                name: true,
-                description: true,
-                discountType: true,
-                method: true,
-                requiredPlan: true,
-                category: true,
-                isPopular: true,
             },
         }),
     ]);
@@ -101,9 +105,18 @@ export const loader = async ({ request }) => {
             return bPublishedAt - aPublishedAt;
         });
 
+    const templatesRaw = listDiscountTemplates();
+
     const templates = templatesRaw.map((template) => ({
         ...template,
+        id: template.slug,
         locked: !canUseTemplate(access, template),
+    }));
+
+    const templateGroups = Object.entries(TEMPLATE_FAMILY_META).map(([ family, meta ]) => ({
+        family,
+        ...meta,
+        templates: templates.filter((template) => template.family === family),
     }));
 
     const createOptions = [
@@ -172,6 +185,7 @@ export const loader = async ({ request }) => {
         stats,
         discounts,
         templates,
+        templateGroups,
         createOptions,
     });
 };
@@ -319,42 +333,57 @@ function TemplateCard({ template, access }) {
 
     return (
         <div
-            className={`rounded-xl border p-4 ${disabled ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"
+            className={`flex h-full flex-col justify-between rounded-2xl border p-5 shadow-sm transition ${disabled
+                ? "border-gray-200 bg-gray-50"
+                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
                 }`}
         >
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-semibold text-gray-900">{template.name}</h3>
-                        {template.requiredPlan === "ADVANCE" && <LockBadge>Advance</LockBadge>}
-                        {template.isPopular && (
-                            <span className="inline-flex rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                                Popular
-                            </span>
-                        )}
+            <div>
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900">
+                                {template.name}
+                            </h3>
+
+                            {template.isPopular ? (
+                                <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                    Popular
+                                </span>
+                            ) : null}
+
+                            {template.requiredPlan === "ADVANCE" ? (
+                                <LockBadge>Advance</LockBadge>
+                            ) : null}
+                        </div>
+
+                        <p className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+                            {template.category}
+                        </p>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">
-                        {template.description || "Ready-to-use discount setup."}
-                    </p>
                 </div>
+
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                    {template.description || "Ready-to-use discount setup."}
+                </p>
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="mt-5 flex items-center justify-between gap-3">
                 <div className="text-xs text-gray-400">
-                    {template.discountType} · {template.method}
+                    {template.method} / CODE
                 </div>
 
                 {disabled ? (
                     <Link
                         to="/app/billing"
-                        className="text-sm font-medium text-orange-700 hover:text-orange-800"
+                        className="inline-flex items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100"
                     >
-                        Unlock
+                        {access.isExpired ? "Upgrade" : "Unlock"}
                     </Link>
                 ) : (
                     <Link
-                        to={`/app/discounts-new?template=${template.slug}`}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        to={`/app/discounts-new?group=${template.family}&template=${template.slug}`}
+                        className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     >
                         Use template
                     </Link>
@@ -441,8 +470,14 @@ function ActionCell({ discount }) {
 }
 
 export default function DiscountsPage() {
-    const { access, trialDaysRemaining, stats, discounts, templates, createOptions } =
-        useLoaderData();
+    const {
+        access,
+        trialDaysRemaining,
+        stats,
+        discounts,
+        templateGroups,
+        createOptions
+    } = useLoaderData();
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -552,6 +587,64 @@ export default function DiscountsPage() {
                         )}
                     </div>
                 </section> */}
+
+                <section className="mt-8">
+                    <div className="mb-4 flex items-end justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">Discount Templates</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Start faster with familiar merchant discount templates.
+                            </p>
+                        </div>
+
+                        {!access.isAdvance && (
+                            <Link
+                                to="/app/billing"
+                                className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                            >
+                                Unlock premium templates
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="space-y-6">
+                        {templateGroups.every((group) => group.templates.length === 0) ? (
+                            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+                                No templates available yet.
+                            </div>
+                        ) : (
+                            templateGroups.map((group) => {
+                                if (group.templates.length === 0) return null;
+
+                                return (
+                                    <div
+                                        key={group.family}
+                                        className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                                    >
+                                        <div className="mb-4">
+                                            <h3 className="text-base font-semibold text-gray-900">
+                                                {group.title}
+                                            </h3>
+                                            <p className="mt-1 text-sm text-gray-500">
+                                                {group.description}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                            {group.templates.map((template) => (
+                                                <TemplateCard
+                                                    key={template.id}
+                                                    template={template}
+                                                    access={access}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </section>
 
                 <section className="mt-8 rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">

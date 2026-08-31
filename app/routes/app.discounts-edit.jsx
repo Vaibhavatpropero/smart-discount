@@ -3,6 +3,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 // import { useEffect } from "react";
 import { data, Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import prisma from "../db.server.js";
+import { authenticate } from "../shopify.server.js";
 import {
     canUseDiscountType,
     getDiscountAccessState,
@@ -11,7 +12,18 @@ import {
 import {
     resolveDiscountIdentityForSave,
 } from "../utils/discount-identity.server.js";
-import { authenticate } from "../shopify.server.js";
+import {
+    getDiscountTemplateByDiscount,
+    getDiscountTemplateBySlug,
+} from "../configs/discount-templates.js";
+import {
+    getGroupConfig,
+    getGroupKeyFromDiscountType,
+    parseJsonArray,
+    buildDraftPayload,
+    buildBxgyConfigPayload,
+    buildInitialState,
+} from "../helpers/NativeDiscountsPayloadHelper.js";
 import BasicsStep from "../components/discount-wizard/steps/BasicsStep.jsx";
 import ValueStep from "../components/discount-wizard/steps/ValueStep.jsx";
 import ConditionsStep from "../components/discount-wizard/steps/ConditionsStep.jsx";
@@ -28,343 +40,6 @@ import hydrateSelectedResource from "../utils/hydrateSelectedResource.server.js"
 // import { logger } from "../utils/logger.server.js";
 
 const SRC = "app.discounts-edit";
-
-const GROUP_CONFIG = {
-    order: {
-        key: "order",
-        family: "PERCENTAGE_OR_FIXED",
-        discountType: "ORDER_PERCENTAGE",
-        method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC", "CODE" ],
-        title: "Order discount",
-        shortTitle: "Order",
-        description: "Percentage or fixed discounts for the full cart.",
-        helper: "Apply a discount across the full order total.",
-        supportsTargets: false,
-        supportsValueTypeToggle: true,
-    },
-    product: {
-        key: "product",
-        family: "PERCENTAGE_OR_FIXED",
-        discountType: "PRODUCT_PERCENTAGE",
-        method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC", "CODE" ],
-        title: "Product / collection discount",
-        shortTitle: "Products",
-        description: "Discount selected products or collections.",
-        helper: "Target specific products or collections instead of the full cart.",
-        supportsTargets: true,
-        supportsValueTypeToggle: true,
-    },
-    bxgy: {
-        key: "bxgy",
-        family: "BXGY",
-        discountType: "BXGY",
-        method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC", "CODE" ],
-        title: "Buy X get Y",
-        shortTitle: "BXGY",
-        description: "Create a BOGO or multi-buy promotion.",
-        helper: "Build a reward flow where qualifying purchases unlock free or discounted items.",
-        supportsTargets: false,
-        supportsValueTypeToggle: false,
-    },
-    shipping: {
-        key: "shipping",
-        family: "FREE_SHIPPING",
-        discountType: "FREE_SHIPPING",
-        method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC", "CODE" ],
-        title: "Free shipping discount",
-        shortTitle: "Shipping",
-        description: "Create a shipping incentive for checkout conversion.",
-        helper: "Use shipping offers to improve conversion at checkout.",
-        supportsTargets: false,
-        supportsValueTypeToggle: false,
-    },
-};
-
-function getGroupConfig(group) {
-    return GROUP_CONFIG[ group ] || GROUP_CONFIG.order;
-}
-
-function getGroupKeyFromDiscountType(discountType) {
-    switch (discountType) {
-        case "PRODUCT_PERCENTAGE":
-        case "PRODUCT_FIXED":
-            return "product";
-        case "BXGY":
-            return "bxgy";
-        case "FREE_SHIPPING":
-            return "shipping";
-        case "ORDER_FIXED":
-        case "ORDER_PERCENTAGE":
-        default:
-            return "order";
-    }
-}
-
-function parseJsonArray(value) {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    try {
-        const parsed = JSON.parse(String(value));
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
-
-function normalizeDateTimeLocal(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-        d.getHours()
-    )}:${pad(d.getMinutes())}`;
-}
-
-function asResourceArray(value) {
-    if (!Array.isArray(value)) return [];
-    return value.filter(Boolean).map((item) => {
-        if (typeof item === "string") {
-            return { id: item };
-        }
-        return item;
-    });
-}
-
-function buildBxgyConfigPayload(formData) {
-    return {
-        customerBuysType: String(formData.get("bxgyBuyRequirementType") || "QUANTITY"),
-        customerBuysQty:
-            formData.get("bxgyBuyQuantity") === "" || formData.get("bxgyBuyQuantity") == null
-                ? null
-                : Number(formData.get("bxgyBuyQuantity")),
-        customerBuysAmount:
-            formData.get("bxgyBuyAmount") === "" || formData.get("bxgyBuyAmount") == null
-                ? null
-                : Number(formData.get("bxgyBuyAmount")),
-        customerBuysProducts: parseJsonArray(formData.get("bxgyBuyProducts")),
-        customerBuysCollections: parseJsonArray(formData.get("bxgyBuyCollections")),
-        customerGetsQty:
-            formData.get("bxgyGetQuantity") === "" || formData.get("bxgyGetQuantity") == null
-                ? null
-                : Number(formData.get("bxgyGetQuantity")),
-        customerGetsEffect: String(formData.get("bxgyGetEffect") || "FREE"),
-        customerGetsPercentage:
-            formData.get("bxgyGetPercentage") === "" || formData.get("bxgyGetPercentage") == null
-                ? null
-                : Number(formData.get("bxgyGetPercentage")),
-        customerGetsAmount:
-            formData.get("bxgyGetAmount") === "" || formData.get("bxgyGetAmount") == null
-                ? null
-                : Number(formData.get("bxgyGetAmount")),
-        customerGetsProducts: parseJsonArray(formData.get("bxgyGetProducts")),
-        customerGetsCollections: parseJsonArray(formData.get("bxgyGetCollections")),
-    };
-}
-
-function buildDraftPayload({ shopId, formData, access, template, existingDiscount }) {
-    const group = String(
-        formData.get("group") || getGroupKeyFromDiscountType(existingDiscount.discountType)
-    ).toLowerCase();
-
-    const groupConfig = getGroupConfig(group);
-    const method = String(formData.get("method") || groupConfig.method);
-    const postedDiscountType = String(
-        formData.get("discountType") || existingDiscount.discountType || groupConfig.discountType
-    );
-
-    const isPercentage = String(formData.get("isPercentage") || "true") === "true";
-    const discountValueRaw = formData.get("discountValue");
-    const discountValue =
-        discountValueRaw === "" || discountValueRaw == null ? null : Number(discountValueRaw);
-
-    const scopeMode = String(formData.get("scopeMode") || "");
-    const targetProducts = parseJsonArray(formData.get("targetProducts"));
-    const targetCollections = parseJsonArray(formData.get("targetCollections"));
-
-    const shippingDestinationMode = String(formData.get("shippingDestinationMode") || "ALL");
-    const shippingDestinationCountries = parseJsonArray(
-        formData.get("shippingDestinationCountries")
-    );
-
-    const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
-    const maximumShippingPrice =
-        maximumShippingPriceRaw === "" || maximumShippingPriceRaw == null
-            ? null
-            : Number(maximumShippingPriceRaw);
-
-    const minimumType = String(formData.get("minimumType") || "NONE");
-    const minimumSubtotalRaw = formData.get("minimumSubtotal");
-    const minimumQuantityRaw = formData.get("minimumQuantity");
-    const usageLimitRaw = formData.get("usageLimit");
-    const bxgyUsesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
-    const startsAtRaw = formData.get("startsAt");
-    const endsAtRaw = formData.get("endsAt");
-
-    const isBxgy = postedDiscountType === "BXGY";
-    const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
-
-    return {
-        shopId,
-        title: String(formData.get("title") || "").trim(),
-        description: String(formData.get("description") || "").trim() || null,
-        method,
-        discountType: postedDiscountType,
-        templateId: template?.id || existingDiscount.templateId || null,
-        shopifyDiscountCode:
-            method === "CODE" ? String(formData.get("discountCode") || "").trim() || null : null,
-        isPercentage: isBxgy || isFreeShipping ? false : isPercentage,
-        discountValue: isBxgy || isFreeShipping ? null : discountValue,
-        appliesToAll: group === "product" ? scopeMode === "ALL" : true,
-        scopeMode: group === "product" ? scopeMode : null,
-        targetProducts:
-            group === "product" && scopeMode === "SPECIFIC_PRODUCTS" ? targetProducts : [],
-        targetCollections:
-            group === "product" && scopeMode === "SPECIFIC_COLLECTIONS" ? targetCollections : [],
-        minimumType,
-        minimumSubtotal:
-            minimumType === "SUBTOTAL" &&
-                minimumSubtotalRaw !== "" &&
-                minimumSubtotalRaw != null
-                ? Number(minimumSubtotalRaw)
-                : null,
-        minimumQuantity:
-            minimumType === "QUANTITY" &&
-                minimumQuantityRaw !== "" &&
-                minimumQuantityRaw != null
-                ? Number(minimumQuantityRaw)
-                : null,
-        usageLimit:
-            usageLimitRaw === "" || usageLimitRaw == null ? null : Number(usageLimitRaw),
-        usesPerOrderLimit:
-            bxgyUsesPerOrderLimitRaw === "" || bxgyUsesPerOrderLimitRaw == null
-                ? null
-                : Number(bxgyUsesPerOrderLimitRaw),
-        appliesOncePerCustomer:
-            String(formData.get("appliesOncePerCustomer") || "false") === "true",
-        combineWithOrderDiscounts:
-            String(formData.get("combineWithOrderDiscounts") || "false") === "true",
-        combineWithProductDiscounts:
-            String(formData.get("combineWithProductDiscounts") || "false") === "true",
-        combineWithShippingDiscounts:
-            String(formData.get("combineWithShippingDiscounts") || "false") === "true",
-        shippingDestinationMode: isFreeShipping ? shippingDestinationMode : null,
-        shippingDestinationCountries:
-            isFreeShipping && shippingDestinationMode === "SPECIFIC_COUNTRIES"
-                ? shippingDestinationCountries
-                : [],
-        maximumShippingPrice: isFreeShipping ? maximumShippingPrice : null,
-        startsAt: startsAtRaw && String(startsAtRaw).trim() ? new Date(String(startsAtRaw)) : null,
-        endsAt: endsAtRaw && String(endsAtRaw).trim() ? new Date(String(endsAtRaw)) : null,
-        status: "DRAFT",
-        lastError: null,
-    };
-}
-
-function buildInitialState(discount, group) {
-    const bxgy = discount.bxgyConfig;
-
-    const bxgyBuyTargetType =
-        Array.isArray(bxgy?.customerBuysCollections) && bxgy.customerBuysCollections.length > 0
-            ? "COLLECTIONS"
-            : "PRODUCTS";
-
-    const bxgyGetTargetType =
-        Array.isArray(bxgy?.customerGetsCollections) && bxgy.customerGetsCollections.length > 0
-            ? "COLLECTIONS"
-            : "PRODUCTS";
-
-    const shippingDestinationMode =
-        Array.isArray(discount.shippingDestinationCountries) &&
-            discount.shippingDestinationCountries.length > 0
-            ? "SPECIFIC_COUNTRIES"
-            : "ALL";
-
-    return {
-        title: discount.title || "",
-        description: discount.description || "",
-        method: discount.method || getGroupConfig(group).method,
-        discountCode: discount.discountCode || discount.shopifyDiscountCode || "",
-        isPercentage: Boolean(discount.isPercentage),
-        discountValue:
-            discount.discountValue == null || discount.discountValue === undefined
-                ? ""
-                : String(discount.discountValue),
-
-        minimumType: discount.minimumType || "NONE",
-        minimumSubtotal:
-            discount.minimumSubtotal == null || discount.minimumSubtotal === undefined
-                ? ""
-                : String(discount.minimumSubtotal),
-        minimumQuantity:
-            discount.minimumQuantity == null || discount.minimumQuantity === undefined
-                ? ""
-                : String(discount.minimumQuantity),
-        usageLimit:
-            discount.usageLimit == null || discount.usageLimit === undefined
-                ? ""
-                : String(discount.usageLimit),
-
-        appliesOncePerCustomer: Boolean(discount.appliesOncePerCustomer),
-        combineWithOrderDiscounts: Boolean(discount.combineWithOrderDiscounts),
-        combineWithProductDiscounts: Boolean(discount.combineWithProductDiscounts),
-        combineWithShippingDiscounts: Boolean(discount.combineWithShippingDiscounts),
-
-        scopeMode: discount.scopeMode || (group === "product" ? "ALL" : "ENTIRE_ORDER"),
-        targetProducts: asResourceArray(discount.targetProducts),
-        targetCollections: asResourceArray(discount.targetCollections),
-
-        bxgyBuyRequirementType: bxgy?.customerBuysType || "QUANTITY",
-        bxgyBuyQuantity:
-            bxgy?.customerBuysQty == null || bxgy?.customerBuysQty === undefined
-                ? ""
-                : String(bxgy.customerBuysQty),
-        bxgyBuyAmount:
-            bxgy?.customerBuysAmount == null || bxgy?.customerBuysAmount === undefined
-                ? ""
-                : String(bxgy.customerBuysAmount),
-        bxgyBuyTargetType,
-        bxgyBuyProducts: asResourceArray(bxgy?.customerBuysProducts),
-        bxgyBuyCollections: asResourceArray(bxgy?.customerBuysCollections),
-
-        bxgyGetQuantity:
-            bxgy?.customerGetsQty == null || bxgy?.customerGetsQty === undefined
-                ? "1"
-                : String(bxgy.customerGetsQty),
-        bxgyGetEffect: bxgy?.customerGetsEffect || "FREE",
-        bxgyGetPercentage:
-            bxgy?.customerGetsPercentage == null || bxgy?.customerGetsPercentage === undefined
-                ? ""
-                : String(bxgy.customerGetsPercentage),
-        bxgyGetAmount:
-            bxgy?.customerGetsAmount == null || bxgy?.customerGetsAmount === undefined
-                ? ""
-                : String(bxgy.customerGetsAmount),
-        bxgyGetTargetType,
-        bxgyGetProducts: asResourceArray(bxgy?.customerGetsProducts),
-        bxgyGetCollections: asResourceArray(bxgy?.customerGetsCollections),
-        bxgyUsesPerOrderLimit:
-            discount.usesPerOrderLimit == null || discount.usesPerOrderLimit === undefined
-                ? ""
-                : String(discount.usesPerOrderLimit),
-
-        shippingDestinationMode,
-        shippingDestinationCountries: Array.isArray(discount.shippingDestinationCountries)
-            ? discount.shippingDestinationCountries
-            : [],
-        maximumShippingPrice:
-            discount.maximumShippingPrice == null || discount.maximumShippingPrice === undefined
-                ? ""
-                : String(discount.maximumShippingPrice),
-
-        startsAt: normalizeDateTimeLocal(discount.startsAt),
-        endsAt: normalizeDateTimeLocal(discount.endsAt),
-    };
-}
 
 export async function loader({ request }) {
     const { admin } = await authenticate.admin(request);
@@ -493,6 +168,11 @@ export async function loader({ request }) {
         group
     );
 
+    const template = getDiscountTemplateByDiscount({
+        ...discount,
+        bxgyConfig: discount.bxgyConfig,
+    });
+
     return data({
         shop,
         access,
@@ -500,6 +180,7 @@ export async function loader({ request }) {
         discount,
         group,
         groupConfig,
+        template,
         initialState,
         shopCurrency: shop.currencyCode || "USD",
         canPublish: true,
@@ -1000,11 +681,12 @@ function StepContent({ state, errors, groupConfig, shopCurrency }) {
     }
 }
 
-function HiddenFields({ state, group, discountId, discountType }) {
+function HiddenFields({ state, group, template, discountId, discountType }) {
     return (
         <>
             <input type="hidden" name="id" value={discountId} />
             <input type="hidden" name="group" value={group} />
+            <input type="hidden" name="templateSlug" value={template?.slug ?? ""} />
             <input type="hidden" name="discountType" value={discountType} />
             <input type="hidden" name="title" value={state.title} />
             <input type="hidden" name="description" value={state.description} />
@@ -1091,11 +773,19 @@ function HiddenFields({ state, group, discountId, discountType }) {
 }
 
 export default function DiscountEditRoute() {
-    const loaderData = useLoaderData();
+    const {
+        access,
+        discountId,
+        discount,
+        group,
+        groupConfig,
+        template,
+        initialState,
+        shopCurrency,
+    } = useLoaderData();
     const actionData = useActionData();
     const navigation = useNavigation();
 
-    const { group, groupConfig, initialState, shopCurrency, discountId } = loaderData;
     const errors = actionData?.errors || {};
     const busy = navigation.state !== "idle";
 
@@ -1174,17 +864,17 @@ export default function DiscountEditRoute() {
                     </div>
                 ) : null}
 
-                <Form method="post">
+                <Form method="post" className="flex flex-col items-center justify-center">
                     <HiddenFields
                         state={state}
                         group={group}
+                        template={template}
                         discountId={discountId}
                         discountType={computedDiscountType}
                     />
 
                     <StepProgress
-                        steps={stepItems}
-                        currentStep={visibleStepIndex}
+                        currentIndex={visibleStepIndex}
                         canGoToStep={state.canGoToStep}
                         onStepClick={(index) => {
                             if (state.canGoToStep(index)) {
@@ -1193,7 +883,7 @@ export default function DiscountEditRoute() {
                         }}
                     />
 
-                    <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="mt-6 w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                         <StepContent
                             state={state}
                             errors={errors}
@@ -1203,7 +893,7 @@ export default function DiscountEditRoute() {
                     </div>
 
                     {/* <StickyActionBar> */}
-                    <div className="flex w-full flex-col gap-3 m-3 py-3 sm:flex-row sm:justify-between">
+                    <div className="flex w-full m-3 px-3 justify-between">
                         <button
                             type="button"
                             onClick={goBack}

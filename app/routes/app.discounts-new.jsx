@@ -22,7 +22,17 @@ import {
     resolveDiscountIdentityForSave,
     computeIsMatchable,
 } from "../utils/discount-identity.server.js";
-import { getGroupConfig, parseJsonArray, buildDraftPayload, buildBxgyConfigPayload } from "../helpers/NativeDiscountsPayloadHelper.js"
+import {
+    getGroupConfig,
+    getGroupKeyFromDiscountType,
+    parseJsonArray,
+    buildDraftPayload,
+    buildBxgyConfigPayload,
+} from "../helpers/NativeDiscountsPayloadHelper.js";
+import {
+    getDiscountTemplateBySlug,
+    getTemplateInitialConfig,
+} from "../configs/discount-templates.js";
 import BasicsStep from "../components/discount-wizard/steps/BasicsStep.jsx";
 import ValueStep from "../components/discount-wizard/steps/ValueStep.jsx";
 import ConditionsStep from "../components/discount-wizard/steps/ConditionsStep.jsx";
@@ -64,26 +74,6 @@ const ERROR_STEP_BY_FIELD = {
     usageLimit: 3,
 };
 
-function getGroupKeyFromDiscountType(discountType) {
-    switch (discountType) {
-        case "PRODUCT_PERCENTAGE":
-        case "PRODUCT_FIXED":
-            return "product";
-        case "BXGY":
-            return "bxgy";
-        case "FREE_SHIPPING":
-            return "shipping";
-        case "APP_VOLUME":
-        case "APP_BUNDLE":
-        case "APP_CAPPED":
-            return "app";
-        case "ORDER_FIXED":
-        case "ORDER_PERCENTAGE":
-        default:
-            return "order";
-    }
-}
-
 export const loader = async ({ request }) => {
     const { admin } = await authenticate.admin(request);
     const { shop, access, trialDaysRemaining } = await requireCreateDiscountAccess(request);
@@ -103,17 +93,22 @@ export const loader = async ({ request }) => {
     const currencyJson = await currencyResponse.json();
     const shopCurrency = currencyJson?.data?.shop?.currencyCode ?? "USD";
 
-    const group = String(url.searchParams.get("group") || "order").toLowerCase();
     const templateSlug = url.searchParams.get("template");
-    const groupConfig = getGroupConfig(group);
-    logger.info(SRC, "Loader group config: ", groupConfig);
-
     let template = null;
+
     if (templateSlug) {
-        template = await prisma.discountTemplate.findUnique({
-            where: { slug: templateSlug },
-        });
+        template = getDiscountTemplateBySlug(templateSlug);
     }
+
+    const requestedGroup = url.searchParams.get("group");
+
+    const group =
+        String(
+            requestedGroup ||
+            (template ? template.family : "order")
+        ).toLowerCase();
+
+    const groupConfig = getGroupConfig(group);
 
     if (templateSlug && (!template || !canUseTemplate(access, template))) {
         throw redirect("/app/billing?reason=templatelocked");
@@ -176,15 +171,10 @@ export const action = async ({ request }) => {
 
         const intent = String(formData.get("intent") || "draft");
         const group = String(formData.get("group") || "order").toLowerCase();
-        const templateSlug =
-            String(formData.get("templateSlug") || "").trim() || null;
+        const templateSlug = String(formData.get("templateSlug") || "").trim() || null;
         const groupConfig = getGroupConfig(group);
 
-        const template = templateSlug
-            ? await prisma.discountTemplate.findUnique({
-                where: { slug: templateSlug },
-            })
-            : null;
+        const template = templateSlug ? getDiscountTemplateBySlug(templateSlug) : null;
 
         if (templateSlug && (!template || !canUseTemplate(access, template))) {
             return data(
@@ -789,15 +779,120 @@ function StepContent({ state, errors, groupConfig, shopCurrency, busy }) {
     }
 }
 
+function HiddenFields({ state, group, template, discountType }) {
+    return (
+        <>
+            <input type="hidden" name="group" value={group} />
+            <input type="hidden" name="templateSlug" value={template?.slug || ""} />
+            <input type="hidden" name="discountType" value={discountType} />
+            <input type="hidden" name="method" value={state.method} />
+            <input type="hidden" name="discountCode" value={state.discountCode} />
+            <input type="hidden" name="title" value={state.title} />
+            <input type="hidden" name="description" value={state.description} />
+            <input type="hidden" name="isPercentage" value={String(state.isPercentage)} />
+            <input type="hidden" name="discountValue" value={state.discountValue} />
+            <input type="hidden" name="scopeMode" value={state.scopeMode} />
+            <input
+                type="hidden"
+                name="targetProducts"
+                value={JSON.stringify(state.targetProducts.map((i) => i.id))}
+            />
+            <input
+                type="hidden"
+                name="targetCollections"
+                value={JSON.stringify(state.targetCollections.map((i) => i.id))}
+            />
+            <input type="hidden" name="minimumType" value={state.minimumType} />
+            <input type="hidden" name="minimumSubtotal" value={state.minimumSubtotal} />
+            <input type="hidden" name="minimumQuantity" value={state.minimumQuantity} />
+            <input type="hidden" name="usageLimit" value={state.usageLimit} />
+            <input
+                type="hidden"
+                name="appliesOncePerCustomer"
+                value={String(state.appliesOncePerCustomer)}
+            />
+            <input
+                type="hidden"
+                name="combineWithOrderDiscounts"
+                value={String(state.combineWithOrderDiscounts)}
+            />
+            <input
+                type="hidden"
+                name="combineWithProductDiscounts"
+                value={String(state.combineWithProductDiscounts)}
+            />
+            <input
+                type="hidden"
+                name="combineWithShippingDiscounts"
+                value={String(state.combineWithShippingDiscounts)}
+            />
+            <input type="hidden" name="startsAt" value={state.startsAt} />
+            <input type="hidden" name="endsAt" value={state.endsAt} />
+
+            {group === "shipping" ? (
+                <>
+                    <input
+                        type="hidden"
+                        name="shippingDestinationMode"
+                        value={state.shippingDestinationMode}
+                    />
+                    <input
+                        type="hidden"
+                        name="shippingDestinationCountries"
+                        value={JSON.stringify(state.shippingDestinationCountries)}
+                    />
+                    <input
+                        type="hidden"
+                        name="maximumShippingPrice"
+                        value={state.maximumShippingPrice}
+                    />
+                </>
+            ) : null}
+
+            {group === "bxgy" ? (
+                <>
+                    <input type="hidden" name="bxgyBuyRequirementType" value={state.bxgyBuyRequirementType} />
+                    <input type="hidden" name="bxgyBuyQuantity" value={state.bxgyBuyQuantity} />
+                    <input type="hidden" name="bxgyBuyAmount" value={state.bxgyBuyAmount} />
+                    <input type="hidden" name="bxgyBuyTargetType" value={state.bxgyBuyTargetType} />
+                    <input type="hidden" name="bxgyBuyProducts" value={JSON.stringify(state.bxgyBuyProducts.map((i) => i.id))} />
+                    <input type="hidden" name="bxgyBuyCollections" value={JSON.stringify(state.bxgyBuyCollections.map((i) => i.id))} />
+                    <input type="hidden" name="bxgyGetQuantity" value={state.bxgyGetQuantity} />
+                    <input type="hidden" name="bxgyGetEffect" value={state.bxgyGetEffect} />
+                    <input type="hidden" name="bxgyGetPercentage" value={state.bxgyGetPercentage} />
+                    <input type="hidden" name="bxgyGetAmount" value={state.bxgyGetAmount} />
+                    <input type="hidden" name="bxgyGetTargetType" value={state.bxgyGetTargetType} />
+                    <input type="hidden" name="bxgyGetProducts" value={JSON.stringify(state.bxgyGetProducts.map((i) => i.id))} />
+                    <input type="hidden" name="bxgyGetCollections" value={JSON.stringify(state.bxgyGetCollections.map((i) => i.id))} />
+                    <input type="hidden" name="bxgyUsesPerOrderLimit" value={state.bxgyUsesPerOrderLimit} />
+                </>
+            ) : null}
+        </>
+    );
+}
+
 export default function DiscountCreatePage() {
-    const { access, trialDaysRemaining, group, groupConfig, template, shopCurrency } = useLoaderData();
+    const {
+        access,
+        trialDaysRemaining,
+        group,
+        groupConfig,
+        template,
+        shopCurrency,
+    } = useLoaderData();
+    const templateInitialConfig = getTemplateInitialConfig(template);
     const actionData = useActionData();
     const navigation = useNavigation();
     const busy = navigation.state !== "idle";
     const errors = actionData?.errors || {};
 
     const groupValue = getGroupKeyFromDiscountType(groupConfig.discountType) || group;
-    const state = useDiscountWizardState({ groupConfig, template, groupValue });
+    const state = useDiscountWizardState({
+        groupConfig,
+        template,
+        groupValue,
+        initialState: templateInitialConfig,
+    });
 
     // useEffect(() => {
     //     console.log(`Loader groupConfig: ${group} : ${JSON.stringify(groupConfig)}`);
@@ -854,100 +949,21 @@ export default function DiscountCreatePage() {
                     </div>
                 ) : null}
 
-                <Form method="post">
-                    <input type="hidden" name="group" value={groupValue} />
-                    <input type="hidden" name="templateSlug" value={template?.slug || ""} />
-                    <input type="hidden" name="discountType" value={computedDiscountType} />
-                    <input type="hidden" name="method" value={state.method} />
-                    <input type="hidden" name="discountCode" value={state.discountCode} />
-                    <input type="hidden" name="title" value={state.title} />
-                    <input type="hidden" name="description" value={state.description} />
-                    <input type="hidden" name="isPercentage" value={String(state.isPercentage)} />
-                    <input type="hidden" name="discountValue" value={state.discountValue} />
-                    <input type="hidden" name="scopeMode" value={state.scopeMode} />
-                    <input
-                        type="hidden"
-                        name="targetProducts"
-                        value={JSON.stringify(state.targetProducts.map((i) => i.id))}
+                <Form method="post" className="flex flex-col items-center justify-center">
+                    <HiddenFields
+                        state={state}
+                        group={group}
+                        template={template}
+                        discountType={computedDiscountType}
                     />
-                    <input
-                        type="hidden"
-                        name="targetCollections"
-                        value={JSON.stringify(state.targetCollections.map((i) => i.id))}
-                    />
-                    <input type="hidden" name="minimumType" value={state.minimumType} />
-                    <input type="hidden" name="minimumSubtotal" value={state.minimumSubtotal} />
-                    <input type="hidden" name="minimumQuantity" value={state.minimumQuantity} />
-                    <input type="hidden" name="usageLimit" value={state.usageLimit} />
-                    <input
-                        type="hidden"
-                        name="appliesOncePerCustomer"
-                        value={String(state.appliesOncePerCustomer)}
-                    />
-                    <input
-                        type="hidden"
-                        name="combineWithOrderDiscounts"
-                        value={String(state.combineWithOrderDiscounts)}
-                    />
-                    <input
-                        type="hidden"
-                        name="combineWithProductDiscounts"
-                        value={String(state.combineWithProductDiscounts)}
-                    />
-                    <input
-                        type="hidden"
-                        name="combineWithShippingDiscounts"
-                        value={String(state.combineWithShippingDiscounts)}
-                    />
-                    <input type="hidden" name="startsAt" value={state.startsAt} />
-                    <input type="hidden" name="endsAt" value={state.endsAt} />
-
-                    {groupValue === "shipping" ? (
-                        <>
-                            <input
-                                type="hidden"
-                                name="shippingDestinationMode"
-                                value={state.shippingDestinationMode}
-                            />
-                            <input
-                                type="hidden"
-                                name="shippingDestinationCountries"
-                                value={JSON.stringify(state.shippingDestinationCountries)}
-                            />
-                            <input
-                                type="hidden"
-                                name="maximumShippingPrice"
-                                value={state.maximumShippingPrice}
-                            />
-                        </>
-                    ) : null}
-
-                    {groupValue === "bxgy" ? (
-                        <>
-                            <input type="hidden" name="bxgyBuyRequirementType" value={state.bxgyBuyRequirementType} />
-                            <input type="hidden" name="bxgyBuyQuantity" value={state.bxgyBuyQuantity} />
-                            <input type="hidden" name="bxgyBuyAmount" value={state.bxgyBuyAmount} />
-                            <input type="hidden" name="bxgyBuyTargetType" value={state.bxgyBuyTargetType} />
-                            <input type="hidden" name="bxgyBuyProducts" value={JSON.stringify(state.bxgyBuyProducts.map((i) => i.id))} />
-                            <input type="hidden" name="bxgyBuyCollections" value={JSON.stringify(state.bxgyBuyCollections.map((i) => i.id))} />
-                            <input type="hidden" name="bxgyGetQuantity" value={state.bxgyGetQuantity} />
-                            <input type="hidden" name="bxgyGetEffect" value={state.bxgyGetEffect} />
-                            <input type="hidden" name="bxgyGetPercentage" value={state.bxgyGetPercentage} />
-                            <input type="hidden" name="bxgyGetAmount" value={state.bxgyGetAmount} />
-                            <input type="hidden" name="bxgyGetTargetType" value={state.bxgyGetTargetType} />
-                            <input type="hidden" name="bxgyGetProducts" value={JSON.stringify(state.bxgyGetProducts.map((i) => i.id))} />
-                            <input type="hidden" name="bxgyGetCollections" value={JSON.stringify(state.bxgyGetCollections.map((i) => i.id))} />
-                            <input type="hidden" name="bxgyUsesPerOrderLimit" value={state.bxgyUsesPerOrderLimit} />
-                        </>
-                    ) : null}
 
                     <StepProgress
                         currentIndex={state.currentStep}
-                        onStepClick={state.setCurrentStep}
                         canGoToStep={state.canGoToStep}
+                        onStepClick={state.setCurrentStep}
                     />
 
-                    <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="mt-6 w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                         <StepContent
                             state={state}
                             errors={errors}
@@ -957,50 +973,50 @@ export default function DiscountCreatePage() {
                         />
                     </div>
 
-                    <StickyActionBar>
-                        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-between">
+                    {/* <StickyActionBar> */}
+                    <div className="flex w-full m-3 px-3 justify-between">
+                        <button
+                            type="button"
+                            disabled={state.currentStep === 0}
+                            onClick={() => state.setCurrentStep((s) => s - 1)}
+                            className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                            Back
+                        </button>
+
+                        {state.currentStep < STEPS.length - 1 ? (
                             <button
                                 type="button"
-                                disabled={state.currentStep === 0}
-                                onClick={() => state.setCurrentStep((s) => s - 1)}
-                                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                                disabled={!state.canGoToStep(state.currentStep + 1)}
+                                onClick={() => state.setCurrentStep((s) => s + 1)}
+                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
                             >
-                                Back
+                                Continue
                             </button>
-
-                            {state.currentStep < STEPS.length - 1 ? (
+                        ) : (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                                 <button
-                                    type="button"
-                                    disabled={!state.canGoToStep(state.currentStep + 1)}
-                                    onClick={() => state.setCurrentStep((s) => s + 1)}
-                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                                    type="submit"
+                                    name="intent"
+                                    value="draft"
+                                    disabled={busy}
+                                    className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                                 >
-                                    Continue
+                                    Save as draft
                                 </button>
-                            ) : (
-                                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                                    <button
-                                        type="submit"
-                                        name="intent"
-                                        value="draft"
-                                        disabled={busy}
-                                        className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                    >
-                                        Save as draft
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        name="intent"
-                                        value="publish"
-                                        disabled={busy}
-                                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        Publish discount
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </StickyActionBar>
+                                <button
+                                    type="submit"
+                                    name="intent"
+                                    value="publish"
+                                    disabled={busy}
+                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    Publish discount
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    {/* </StickyActionBar> */}
                 </Form>
             </div>
         </div>

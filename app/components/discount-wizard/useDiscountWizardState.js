@@ -7,6 +7,8 @@ export function useDiscountWizardState({
     groupValue,
     initialState = null,
 }) {
+    const templateDefaults = template?.defaultConfig ?? {};
+
     const getInitialTitle = () =>
         initialState?.title ??
         (template?.name ? `${template.name} draft` : `${groupConfig.title} draft`);
@@ -14,14 +16,17 @@ export function useDiscountWizardState({
     const getInitialDescription = () =>
         initialState?.description ?? template?.description ?? "";
 
-    const getInitialMethod = () =>
-        initialState?.method ?? groupConfig.method ?? "AUTOMATIC";
+    const getInitialMethod =
+        initialState?.method ?? templateDefaults.method ?? groupConfig.method ?? "AUTOMATIC";
 
     const getInitialDiscountCode = () => initialState?.discountCode ?? "";
-    const getInitialIsPercentage = () => initialState?.isPercentage ?? true;
-    const getInitialDiscountValue = () => initialState?.discountValue ?? "";
+    const getInitialIsPercentage =
+        initialState?.isPercentage ?? templateDefaults.isPercentage ?? true;
+    const getInitialDiscountValue = () =>
+        initialState?.discountValue ?? templateDefaults.discountValue ?? "";
 
-    const getInitialMinimumType = () => initialState?.minimumType ?? "NONE";
+    const getInitialMinimumType =
+        initialState?.minimumType ?? templateDefaults.minimumType ?? "NONE";
     const getInitialMinimumSubtotal = () => initialState?.minimumSubtotal ?? "";
     const getInitialMinimumQuantity = () => initialState?.minimumQuantity ?? "";
     const getInitialUsageLimit = () => initialState?.usageLimit ?? "";
@@ -34,37 +39,45 @@ export function useDiscountWizardState({
     const getInitialCombineWithShippingDiscounts = () =>
         initialState?.combineWithShippingDiscounts ?? false;
 
-    const getInitialScopeMode = () =>
-        initialState?.scopeMode ?? (groupValue === "product" ? "ALL" : "ENTIRE_ORDER");
+    const getInitialScopeMode =
+        initialState?.scopeMode ??
+        templateDefaults.scopeMode ??
+        (groupValue === "product" ? "ALL" : "ENTIRE_ORDER");
     const getInitialTargetProducts = () => initialState?.targetProducts ?? [];
     const getInitialTargetCollections = () => initialState?.targetCollections ?? [];
 
-    const getInitialBxgyBuyRequirementType = () =>
-        initialState?.bxgyBuyRequirementType ?? "QUANTITY";
-    const getInitialBxgyBuyQuantity = () => initialState?.bxgyBuyQuantity ?? "";
-    const getInitialBxgyBuyAmount = () => initialState?.bxgyBuyAmount ?? "";
-    const getInitialBxgyBuyTargetType = () =>
-        initialState?.bxgyBuyTargetType ?? "PRODUCTS";
+    const getInitialBxgyBuyRequirementType =
+        initialState?.bxgyBuyRequirementType ?? templateDefaults.bxgyBuyRequirementType ?? "QUANTITY";
+    const getInitialBxgyBuyQuantity = () =>
+        initialState?.bxgyBuyQuantity ?? templateDefaults.bxgyBuyQuantity ?? "";
+    const getInitialBxgyBuyAmount = () =>
+        initialState?.bxgyBuyAmount ?? templateDefaults.bxgyBuyAmount ?? "";
+    const getInitialBxgyBuyTargetType =
+        initialState?.bxgyBuyTargetType ?? templateDefaults.bxgyBuyTargetType ?? "PRODUCTS";
     const getInitialBxgyBuyProducts = () => initialState?.bxgyBuyProducts ?? [];
     const getInitialBxgyBuyCollections = () => initialState?.bxgyBuyCollections ?? [];
 
-    const getInitialBxgyGetQuantity = () => initialState?.bxgyGetQuantity ?? "1";
-    const getInitialBxgyGetEffect = () => initialState?.bxgyGetEffect ?? "FREE";
-    const getInitialBxgyGetPercentage = () => initialState?.bxgyGetPercentage ?? "";
-    const getInitialBxgyGetAmount = () => initialState?.bxgyGetAmount ?? "";
-    const getInitialBxgyGetTargetType = () =>
-        initialState?.bxgyGetTargetType ?? "PRODUCTS";
+    const getInitialBxgyGetQuantity =
+        initialState?.bxgyGetQuantity ?? templateDefaults.bxgyGetQuantity ?? 1;
+    const getInitialBxgyGetEffect =
+        initialState?.bxgyGetEffect ?? templateDefaults.bxgyGetEffect ?? "FREE";
+    const getInitialBxgyGetPercentage = () =>
+        initialState?.bxgyGetPercentage ?? templateDefaults.bxgyGetPercentage ?? "";
+    const getInitialBxgyGetAmount = () =>
+        initialState?.bxgyGetAmount ?? templateDefaults.bxgyGetAmount ?? "";
+    const getInitialBxgyGetTargetType =
+        initialState?.bxgyGetTargetType ?? templateDefaults.bxgyGetTargetType ?? "PRODUCTS";
     const getInitialBxgyGetProducts = () => initialState?.bxgyGetProducts ?? [];
     const getInitialBxgyGetCollections = () => initialState?.bxgyGetCollections ?? [];
     const getInitialBxgyUsesPerOrderLimit = () =>
         initialState?.bxgyUsesPerOrderLimit ?? "";
 
-    const getInitialShippingDestinationMode = () =>
-        initialState?.shippingDestinationMode ?? "ALL";
+    const getInitialShippingDestinationMode =
+        initialState?.shippingDestinationMode ?? templateDefaults.shippingDestinationMode ?? "ALL";
     const getInitialShippingDestinationCountries = () =>
-        initialState?.shippingDestinationCountries ?? [];
+        initialState?.shippingDestinationCountries ?? templateDefaults.shippingDestinationCountries ?? [];
     const getInitialMaximumShippingPrice = () =>
-        initialState?.maximumShippingPrice ?? "";
+        initialState?.maximumShippingPrice ?? templateDefaults.maximumShippingPrice ?? "";
 
     const getInitialStartsAt = () => initialState?.startsAt ?? "";
     const getInitialEndsAt = () => initialState?.endsAt ?? "";
