@@ -293,6 +293,10 @@ model Discount {
   discountValue Decimal? @db.Decimal(10, 2)
   isPercentage  Boolean? @default(true)
 
+  // For APP_CAPPED only
+  // discountValue = percentage, cappedAmount = max money off per order
+  cappedAmount Decimal? @db.Decimal(10, 2)
+
   // ── Target scope ──────────────────────────────────────────
   // appliesToAll=true → whole order / all products
   // appliesToAll=false → use targetProducts + targetCollections

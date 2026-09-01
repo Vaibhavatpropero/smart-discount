@@ -1,0 +1,12 @@
+# extensions/capped-order-discount/src/cart_delivery_options_discounts_generate_run.graphql
+
+query DeliveryInput {
+  cart {
+    deliveryGroups {
+      id
+    }
+  }
+  discount {
+    discountClasses
+  }
+}

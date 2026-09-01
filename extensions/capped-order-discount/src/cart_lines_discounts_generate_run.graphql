@@ -1,0 +1,17 @@
+# extensions/capped-order-discount/src/cart_lines_discounts_generate_run.graphql
+
+query CartInput {
+  cart {
+    lines {
+      id
+      cost {
+        subtotalAmount {
+          amount
+        }
+      }
+    }
+  }
+  discount {
+    discountClasses
+  }
+}
