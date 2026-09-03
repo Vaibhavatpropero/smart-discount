@@ -1,0 +1,25 @@
+{
+    "cart": {
+        "cost": {
+            "subtotalAmount": {
+                "amount": "20.0"
+            }
+        },
+        "lines": [
+            {
+                "id": "gid://shopify/CartLine/1"
+            }
+        ]
+    },
+    "discount": {
+        "discountClasses": [
+            "ORDER"
+        ],
+        "metafield": {
+            "jsonValue": {
+                "percent": 20,
+                "cappedAmount": 5
+            }
+        }
+    }
+}

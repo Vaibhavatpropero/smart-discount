@@ -6,8 +6,10 @@ export function useDiscountWizardState({
     template,
     groupValue,
     initialState = null,
+    skipConditionsStep = false,
 }) {
     const templateDefaults = template?.defaultConfig ?? {};
+    const isAppCappedTemplate = template?.discountType === "APP_CAPPED";
 
     const getInitialTitle = () =>
         initialState?.title ??
@@ -24,6 +26,8 @@ export function useDiscountWizardState({
         initialState?.isPercentage ?? templateDefaults.isPercentage ?? true;
     const getInitialDiscountValue = () =>
         initialState?.discountValue ?? templateDefaults.discountValue ?? "";
+    const getInitialCappedAmount = () =>
+        initialState?.cappedAmount ?? templateDefaults.cappedAmount ?? "";
 
     const getInitialMinimumType =
         initialState?.minimumType ?? templateDefaults.minimumType ?? "NONE";
@@ -106,6 +110,7 @@ export function useDiscountWizardState({
 
     const [ isPercentage, setIsPercentage ] = useState(getInitialIsPercentage);
     const [ discountValue, setDiscountValue ] = useState(getInitialDiscountValue);
+    const [ cappedAmount, setCappedAmount ] = useState(getInitialCappedAmount);
 
     const [ minimumType, setMinimumType ] = useState(getInitialMinimumType);
     const [ minimumSubtotal, setMinimumSubtotal ] = useState(getInitialMinimumSubtotal);
@@ -218,14 +223,23 @@ export function useDiscountWizardState({
             (Number.isFinite(Number(maximumShippingPrice)) &&
                 Number(maximumShippingPrice) > 0);
 
+        const appCappedValueValid =
+            discountValue !== "" &&
+            Number.isFinite(Number(discountValue)) &&
+            Number(discountValue) > 0 &&
+            Number(discountValue) <= 100 &&
+            cappedAmount !== "" &&
+            Number.isFinite(Number(cappedAmount)) &&
+            Number(cappedAmount) > 0;
+
         const valueValid =
             groupValue === "bxgy"
-                ? bxgyBuyRequirementValid &&
-                bxgyGetQuantityValid &&
-                bxgyGetEffectValid
+                ? bxgyBuyRequirementValid && bxgyGetQuantityValid && bxgyGetEffectValid
                 : groupValue === "shipping"
                     ? shippingCountriesValid && maximumShippingPriceValid
-                    : defaultValueValid;
+                    : isAppCappedTemplate
+                        ? appCappedValueValid
+                        : defaultValueValid;
 
         const defaultConditionsValid =
             minimumType === "NONE" ||
@@ -247,11 +261,10 @@ export function useDiscountWizardState({
             (Number.isInteger(Number(bxgyUsesPerOrderLimit)) &&
                 Number(bxgyUsesPerOrderLimit) > 0);
 
-        const conditionsValid =
-            groupValue === "bxgy"
-                ? bxgyBuyTargetsValid &&
-                bxgyGetTargetsValid &&
-                bxgyUsesPerOrderLimitValid
+        const conditionsValid = skipConditionsStep
+            ? true
+            : groupValue === "bxgy"
+                ? bxgyBuyTargetsValid && bxgyGetTargetsValid && bxgyUsesPerOrderLimitValid
                 : defaultConditionsValid;
 
         const scheduleValid =
@@ -259,6 +272,7 @@ export function useDiscountWizardState({
 
         return {
             basicsValid,
+            appCappedValueValid,
             valueValid,
             conditionsValid,
             scheduleValid,
@@ -276,6 +290,7 @@ export function useDiscountWizardState({
         method,
         discountCode,
         discountValue,
+        cappedAmount,
         isPercentage,
         minimumType,
         minimumSubtotal,
@@ -300,6 +315,7 @@ export function useDiscountWizardState({
         startsAt,
         endsAt,
         groupValue,
+        isAppCappedTemplate,
     ]);
 
     const canGoToStep = (stepIndex) => {
@@ -353,6 +369,7 @@ export function useDiscountWizardState({
 
         isPercentage, setIsPercentage,
         discountValue, setDiscountValue,
+        cappedAmount, setCappedAmount,
 
         minimumType, setMinimumType,
         minimumSubtotal, setMinimumSubtotal,

@@ -37,6 +37,7 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
     const symbol = getCurrencySymbol(shopCurrency);
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
+    const isAppCapped = groupConfig.discountType === "APP_CAPPED";
 
     if (isBxgy) {
         return (
@@ -50,8 +51,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setBxgyBuyRequirementType("QUANTITY")}
                             className={`rounded-xl border p-4 text-left transition ${state.bxgyBuyRequirementType === "QUANTITY"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">Buy quantity</p>
@@ -62,8 +63,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setBxgyBuyRequirementType("AMOUNT")}
                             className={`rounded-xl border p-4 text-left transition ${state.bxgyBuyRequirementType === "AMOUNT"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">Spend amount</p>
@@ -148,8 +149,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setBxgyGetEffect("FREE")}
                             className={`rounded-xl border p-4 text-left transition ${state.bxgyGetEffect === "FREE"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">Free</p>
@@ -162,8 +163,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setBxgyGetEffect("AMOUNT_OFF_EACH")}
                             className={`rounded-xl border p-4 text-left transition ${state.bxgyGetEffect === "AMOUNT_OFF_EACH"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">
@@ -178,8 +179,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setBxgyGetEffect("PERCENTAGE")}
                             className={`rounded-xl border p-4 text-left transition ${state.bxgyGetEffect === "PERCENTAGE"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">
@@ -266,8 +267,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             type="button"
                             onClick={() => state.setShippingDestinationMode("ALL")}
                             className={`rounded-xl border p-4 text-left transition ${state.shippingDestinationMode === "ALL"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">All countries</p>
@@ -282,8 +283,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                                 state.setShippingDestinationMode("SPECIFIC_COUNTRIES")
                             }
                             className={`rounded-xl border p-4 text-left transition ${state.shippingDestinationMode === "SPECIFIC_COUNTRIES"
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                         >
                             <p className="text-sm font-semibold text-gray-900">
@@ -336,6 +337,75 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
         );
     }
 
+    if (isAppCapped) {
+        return (
+            <div className="space-y-5">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    This custom discount applies a percentage off the order subtotal, up to a maximum capped amount.
+                </div>
+
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">
+                        Percentage off
+                    </span>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={state.discountValue}
+                            onChange={(e) => state.setDiscountValue(e.target.value)}
+                            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 pr-12 text-sm outline-none focus:border-blue-500"
+                            placeholder="10"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                            %
+                        </span>
+                    </div>
+                    {errors.discountValue ? (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {errors.discountValue}
+                        </span>
+                    ) : (
+                        <span className="mt-1 block text-xs text-gray-500">
+                            Example: 10% off the order subtotal.
+                        </span>
+                    )}
+                </label>
+
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">
+                        Maximum discount cap
+                    </span>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={state.cappedAmount}
+                            onChange={(e) => state.setCappedAmount(e.target.value)}
+                            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 pr-12 text-sm outline-none focus:border-blue-500"
+                            placeholder="200"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                            {symbol}
+                        </span>
+                    </div>
+                    {errors.cappedAmount ? (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {errors.cappedAmount}
+                        </span>
+                    ) : (
+                        <span className="mt-1 block text-xs text-gray-500">
+                            Example: cap the total discount at {symbol}200.
+                        </span>
+                    )}
+                </label>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-5">
             <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -346,8 +416,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                     type="button"
                     onClick={() => state.setIsPercentage(true)}
                     className={`rounded-xl border p-4 text-left transition ${state.isPercentage
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 bg-white hover:border-gray-300"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                         }`}
                 >
                     <p className="text-sm font-semibold text-gray-900">Percentage off</p>
@@ -357,8 +427,8 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                     type="button"
                     onClick={() => state.setIsPercentage(false)}
                     className={`rounded-xl border p-4 text-left transition ${!state.isPercentage
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 bg-white hover:border-gray-300"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                         }`}
                 >
                     <p className="text-sm font-semibold text-gray-900">Fixed amount off</p>

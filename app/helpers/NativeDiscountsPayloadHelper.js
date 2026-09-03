@@ -56,9 +56,9 @@ export const GROUP_CONFIG = {
     app: {
         key: "app",
         family: "APP_FUNCTION",
-        discountType: "APP_VOLUME",
+        discountType: "APP_CAPPED",
         method: "AUTOMATIC",
-        supportedMethods: [ "AUTOMATIC" ],
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
         title: "Smart app discount",
         shortTitle: "App discount",
         description: "Advanced Functions-based logic for premium plans.",
@@ -199,6 +199,9 @@ export function buildDraftPayload({
     const discountValueRaw = formData.get("discountValue");
     const discountValue =
         discountValueRaw === "" || discountValueRaw == null ? null : Number(discountValueRaw);
+    const cappedAmountRaw = formData.get("cappedAmount");
+    const cappedAmount =
+        cappedAmountRaw === "" || cappedAmountRaw == null ? null : Number(cappedAmountRaw);
 
     const scopeMode = String(formData.get("scopeMode") || "");
     const rawTargetProducts = normalizeJson(formData.get("targetProducts"));
@@ -253,33 +256,39 @@ export function buildDraftPayload({
             : Number.isFinite(discountValue)
                 ? discountValue
                 : null,
+        cappedAmount:
+            discountType === "APP_CAPPED" && Number.isFinite(cappedAmount)
+                ? cappedAmount
+                : null,
         isPercentage: isBxgy || isFreeShipping ? false : isPercentage,
         appliesToAll,
         targetProducts,
         targetCollections,
-        minimumType,
+        minimumType: discountType === "APP_CAPPED" ? "NONE" : minimumType,
         minimumSubtotal:
-            minimumType === "SUBTOTAL" && minimumSubtotalRaw !== "" && minimumSubtotalRaw != null
-                ? Number(minimumSubtotalRaw)
-                : null,
-        minimumQuantity:
-            minimumType === "QUANTITY" && minimumQuantityRaw !== "" && minimumQuantityRaw != null
-                ? Number(minimumQuantityRaw)
-                : null,
-        usageLimit:
-            usageLimitRaw === "" || usageLimitRaw == null ? null : Number(usageLimitRaw),
-        usesPerOrderLimit:
-            bxgyUsesPerOrderLimitRaw === "" || bxgyUsesPerOrderLimitRaw == null
+            discountType === "APP_CAPPED"
                 ? null
-                : Number(bxgyUsesPerOrderLimitRaw),
+                : minimumType === "SUBTOTAL" && minimumSubtotalRaw !== "" && minimumSubtotalRaw != null
+                    ? Number(minimumSubtotalRaw)
+                    : null,
+        minimumQuantity:
+            discountType === "APP_CAPPED"
+                ? null
+                : minimumType === "QUANTITY" && minimumQuantityRaw !== "" && minimumQuantityRaw != null
+                    ? Number(minimumQuantityRaw)
+                    : null,
+        usageLimit:
+            usageLimitRaw === "" || usageLimitRaw == null
+                ? null
+                : Number(usageLimitRaw),
         appliesOncePerCustomer:
-            String(formData.get("appliesOncePerCustomer") || "false") === "true",
+            String(formData.get("appliesOncePerCustomer")) === "true",
         combineWithOrderDiscounts:
-            String(formData.get("combineWithOrderDiscounts") || "false") === "true",
+            String(formData.get("combineWithOrderDiscounts")) === "true",
         combineWithProductDiscounts:
-            String(formData.get("combineWithProductDiscounts") || "false") === "true",
+            String(formData.get("combineWithProductDiscounts")) === "true",
         combineWithShippingDiscounts:
-            String(formData.get("combineWithShippingDiscounts") || "false") === "true",
+            String(formData.get("combineWithShippingDiscounts")) === "true",
         shippingDestinationCountries:
             isFreeShipping
                 ? shippingDestinationMode === "SPECIFIC_COUNTRIES"
@@ -292,7 +301,6 @@ export function buildDraftPayload({
                 : null,
         startsAt: startsAtRaw ? new Date(startsAtRaw) : existingDiscount?.startsAt ?? new Date(),
         endsAt: endsAtRaw ? new Date(endsAtRaw) : null,
-        templateId: template?.id || existingDiscount?.templateId || null,
         templateSlug: template?.slug || String(formData.get("templateSlug") || "").trim() || null,
         createdOnPlan: access?.planName || existingDiscount?.createdOnPlan || null,
         lastError: null,
@@ -325,6 +333,7 @@ export function buildInitialState(discount, group) {
         discountCode: discount.discountCode || discount.shopifyDiscountCode || "",
         isPercentage: Boolean(discount.isPercentage),
         discountValue: discount.discountValue == null ? "" : String(discount.discountValue),
+        cappedAmount: discount.cappedAmount == null ? "" : String(discount.cappedAmount),
 
         minimumType: discount.minimumType || "NONE",
         minimumSubtotal: discount.minimumSubtotal == null ? "" : String(discount.minimumSubtotal),

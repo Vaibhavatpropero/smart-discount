@@ -144,6 +144,22 @@ export const DISCOUNT_TEMPLATES = [
             minimumType: "NONE",
         },
     },
+    {
+        slug: "app-capped-order",
+        name: "Capped percentage off order",
+        description: "Apply a percentage discount to the order subtotal, capped at a maximum amount.",
+        family: DISCOUNT_TEMPLATE_FAMILIES.ORDER,
+        category: "Capped percent off order",
+        discountType: "APP_CAPPED",
+        method: "AUTOMATIC",
+        requiredPlan: "FREE",
+        isPopular: true,
+        defaultConfig: {
+            isPercentage: true,
+            minimumType: "NONE",
+            cappedAmount: "",
+        },
+    },
 ];
 
 export function getDiscountTemplateByDiscount(discount) {
@@ -187,6 +203,9 @@ export function getDiscountTemplateByDiscount(discount) {
 
             return getDiscountTemplateBySlug("bxgy-free");
         }
+
+        case "APP_CAPPED":
+            return getDiscountTemplateBySlug("app-capped-order");
 
         default:
             return null;

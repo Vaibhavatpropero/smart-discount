@@ -144,7 +144,7 @@ function toMoneyString(value) {
  * @returns {number | null} Truncated positive integer, or null
  * @throws {Error} If value is present but not a positive finite number
  */
-function toPositiveIntegerOrNull(value, fieldName) {
+export function toPositiveIntegerOrNull(value, fieldName) {
     if (value === "" || value == null) return null;
 
     const num = Number(value);
@@ -456,7 +456,7 @@ function buildMinimumRequirement(discount) {
  * @param {boolean} [discount.combineWithShippingDiscounts] - Allow stacking with shipping discounts
  * @returns {{ orderDiscounts: boolean, productDiscounts: boolean, shippingDiscounts: boolean }}
  */
-function buildCombinesWith(discount) {
+export function buildCombinesWith(discount) {
     return {
         orderDiscounts: Boolean(discount.combineWithOrderDiscounts),
         productDiscounts: Boolean(discount.combineWithProductDiscounts),
@@ -473,7 +473,7 @@ function buildCombinesWith(discount) {
  * @returns {string} ISO 8601 UTC timestamp, e.g. "2025-01-01T00:00:00.000Z"
  * @throws {Error} If provided value parses to an invalid date
  */
-function buildStartsAt(discount) {
+export function buildStartsAt(discount) {
     const starts = discount.startsAt ? new Date(discount.startsAt) : new Date();
     if (Number.isNaN(starts.getTime())) {
         throw new Error("Invalid start date value.");
@@ -489,7 +489,7 @@ function buildStartsAt(discount) {
  * @returns {string | null} ISO 8601 UTC timestamp or null
  * @throws {Error} If provided value parses to an invalid date
  */
-function buildEndsAt(discount) {
+export function buildEndsAt(discount) {
     if (!discount.endsAt) return null;
 
     const ends = new Date(discount.endsAt);
@@ -570,7 +570,7 @@ function buildFreeShippingPayloadBase(discount) {
  * @param {string} mutationName - Used in the thrown error message for traceability
  * @throws {Error}
  */
-function assertNoUserErrors(userErrors, mutationName) {
+export function assertNoUserErrors(userErrors, mutationName) {
     if (userErrors?.length) {
         const message = userErrors
             .map((e) => `${e.field?.join(".") || "field"}: ${e.message}`)
@@ -588,7 +588,7 @@ function assertNoUserErrors(userErrors, mutationName) {
  * @param {string} mutationName - Used in the thrown error message for traceability
  * @throws {Error}
  */
-function assertGraphqlSucceeded(json, mutationName) {
+export function assertGraphqlSucceeded(json, mutationName) {
     if (json?.errors?.length) {
         const message = json.errors.map((e) => e.message).join(" | ");
         throw new Error(`${mutationName} GraphQL error — ${message}`);

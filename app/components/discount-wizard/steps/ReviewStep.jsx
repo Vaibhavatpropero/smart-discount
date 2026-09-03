@@ -1,5 +1,5 @@
 // app/components/discount-wizard/steps/ReviewStep.jsx
-import { useEffect } from "react";
+// import { useEffect } from "react";
 import { getCurrencySymbol } from "../../../utils/currency.js";
 
 function formatBxgySummary(state, symbol) {
@@ -43,15 +43,19 @@ function formatShippingSummary(state, symbol) {
     return `Free shipping for ${destinationPart} · ${maxRatePart}`;
 }
 
+function formatAppCappedSummary(state, symbol) {
+    return `${state.discountValue || 0}% off order subtotal, capped at ${symbol}${state.cappedAmount || 0}`;
+}
+
 export default function ReviewStep({ state, groupConfig, shopCurrency }) {
     const symbol = getCurrencySymbol(shopCurrency);
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
+    const isAppCapped = groupConfig.discountType === "APP_CAPPED";
 
-    useEffect(() => {
-        console.log(`Form final state: ${JSON.stringify(state)}`);
-    }, [ state ])
-
+    // useEffect(() => {
+    //     console.log(`Form final state: ${JSON.stringify(state)}`);
+    // }, [ state ])
 
     const valueLabel = state.isPercentage
         ? `${state.discountValue || 0}% off`
@@ -97,23 +101,39 @@ export default function ReviewStep({ state, groupConfig, shopCurrency }) {
                         : "Starts immediately",
                 },
             ]
-            : [
-                { label: "Title", value: state.title },
-                { label: "Discount family", value: groupConfig.title },
-                {
-                    label: "Method",
-                    value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic",
-                },
-                { label: "Value", value: `${valueLabel} entire order` },
-                { label: "Condition", value: minLabel },
-                { label: "Usage limit", value: state.usageLimit || "Unlimited" },
-                {
-                    label: "Schedule",
-                    value: state.startsAt
-                        ? `${state.startsAt} → ${state.endsAt || "No end date"}`
-                        : "Starts immediately",
-                },
-            ];
+            : isAppCapped
+                ? [
+                    { label: "Title", value: state.title },
+                    { label: "Discount family", value: groupConfig.title },
+                    {
+                        label: "Method",
+                        value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic",
+                    },
+                    { label: "Discount rule", value: formatAppCappedSummary(state, symbol) },
+                    {
+                        label: "Schedule",
+                        value: state.startsAt
+                            ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                            : "Starts immediately",
+                    },
+                ]
+                : [
+                    { label: "Title", value: state.title },
+                    { label: "Discount family", value: groupConfig.title },
+                    {
+                        label: "Method",
+                        value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic",
+                    },
+                    { label: "Value", value: `${valueLabel} entire order` },
+                    { label: "Condition", value: minLabel },
+                    { label: "Usage limit", value: state.usageLimit || "Unlimited" },
+                    {
+                        label: "Schedule",
+                        value: state.startsAt
+                            ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                            : "Starts immediately",
+                    },
+                ];
 
     return (
         <div className="space-y-6">

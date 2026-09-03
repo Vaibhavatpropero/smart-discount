@@ -51,6 +51,7 @@ const ERROR_STEP_BY_FIELD = {
     discountCode: 0,
 
     discountValue: 1,
+    cappedAmount: 1,
 
     targetProducts: 2,
     targetCollections: 2,
@@ -102,11 +103,15 @@ export const loader = async ({ request }) => {
 
     const requestedGroup = url.searchParams.get("group");
 
-    const group =
-        String(
-            requestedGroup ||
-            (template ? template.family : "order")
-        ).toLowerCase();
+    const derivedGroup =
+        requestedGroup ||
+        (template?.discountType === "APP_CAPPED"
+            ? "app"
+            : template
+                ? template.family
+                : "order");
+
+    const group = String(derivedGroup).toLowerCase();
 
     const groupConfig = getGroupConfig(group);
 
@@ -159,6 +164,7 @@ export const action = async ({ request }) => {
 
         logger.info(SRC, "Parsing request form data");
         const formData = await request.formData();
+        const requestedGroup = String(formData.get("group") || "").trim() || null;
 
         logger.info(SRC, "Request form parsed", {
             shopId,
@@ -170,7 +176,15 @@ export const action = async ({ request }) => {
         });
 
         const intent = String(formData.get("intent") || "draft");
-        const group = String(formData.get("group") || "order").toLowerCase();
+        const derivedGroup =
+            requestedGroup ||
+            (template?.discountType === "APP_CAPPED"
+                ? "app"
+                : template
+                    ? template.family
+                    : "order");
+
+        const group = String(derivedGroup).toLowerCase();
         const templateSlug = String(formData.get("templateSlug") || "").trim() || null;
         const groupConfig = getGroupConfig(group);
 
@@ -282,6 +296,12 @@ export const action = async ({ request }) => {
                 ? null
                 : Number(discountValueRaw);
 
+        const cappedAmountRaw = formData.get("cappedAmount");
+        const cappedAmount =
+            cappedAmountRaw === "" || cappedAmountRaw == null
+                ? null
+                : Number(cappedAmountRaw);
+
         const scopeMode = String(formData.get("scopeMode") || "");
         const targetProducts = parseJsonArray(formData.get("targetProducts"));
         const targetCollections = parseJsonArray(formData.get("targetCollections"));
@@ -329,11 +349,14 @@ export const action = async ({ request }) => {
                 : Number(maximumShippingPriceRaw);
 
         const errors = {};
+
         const postedDiscountType = String(
             formData.get("discountType") || groupConfig.discountType
         );
+
         const isBxgy = postedDiscountType === "BXGY";
         const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
+        const isAppCapped = postedDiscountType === "APP_CAPPED";
 
         if (!title) {
             errors.title = "Title is required.";
@@ -347,6 +370,7 @@ export const action = async ({ request }) => {
         if (
             !isBxgy &&
             !isFreeShipping &&
+            !isAppCapped &&
             (discountValue == null ||
                 !Number.isFinite(discountValue) ||
                 discountValue <= 0)
@@ -357,6 +381,7 @@ export const action = async ({ request }) => {
         if (
             !isBxgy &&
             !isFreeShipping &&
+            !isAppCapped &&
             String(formData.get("isPercentage") || "true") === "true" &&
             discountValue > 100
         ) {
@@ -471,25 +496,37 @@ export const action = async ({ request }) => {
             }
         }
 
-        if (
-            minimumType === "SUBTOTAL" &&
-            (!minimumSubtotal || Number(minimumSubtotal) <= 0)
-        ) {
-            errors.minimumSubtotal = "Enter a valid minimum subtotal.";
+        if (isAppCapped) {
+            if (
+                discountValue == null ||
+                !Number.isFinite(discountValue) ||
+                discountValue <= 0 ||
+                discountValue > 100
+            ) {
+                errors.discountValue = "Enter a valid percentage value between 0 and 100.";
+            }
+
+            if (
+                cappedAmount == null ||
+                !Number.isFinite(cappedAmount) ||
+                cappedAmount <= 0
+            ) {
+                errors.cappedAmount = "Enter a valid capped amount.";
+            }
         }
 
-        if (
-            minimumType === "QUANTITY" &&
-            (!minimumQuantity || Number(minimumQuantity) <= 0)
-        ) {
-            errors.minimumQuantity = "Enter a valid minimum quantity.";
-        }
+        if (!isAppCapped) {
+            if (minimumType === "SUBTOTAL" && (!minimumSubtotal || Number(minimumSubtotal) <= 0)) {
+                errors.minimumSubtotal = "Enter a valid minimum subtotal.";
+            }
 
-        if (
-            usageLimit &&
-            (!Number.isInteger(Number(usageLimit)) || Number(usageLimit) <= 0)
-        ) {
-            errors.usageLimit = "Usage limit must be a positive whole number.";
+            if (minimumType === "QUANTITY" && (!minimumQuantity || Number(minimumQuantity) <= 0)) {
+                errors.minimumQuantity = "Enter a valid minimum quantity.";
+            }
+
+            if (usageLimit && (!Number.isInteger(Number(usageLimit)) || Number(usageLimit) <= 0)) {
+                errors.usageLimit = "Usage limit must be a positive whole number.";
+            }
         }
 
         if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
@@ -634,15 +671,36 @@ export const action = async ({ request }) => {
                 hasBxgyConfig: Boolean(discount.bxgyConfig),
             });
 
-            const { pushDiscountToShopify } = await import(
-                "../utils/discount-sync.server.js"
-            );
+            let shopifyDiscountId;
 
-            const { shopifyDiscountId } = await pushDiscountToShopify({
-                admin,
-                discount: syncDiscount,
-                currencyCode: "USD",
-            });
+            if (syncDiscount.discountType === "APP_CAPPED") {
+                const {
+                    pushCustomDiscountToShopify,
+                    resolveCappedOrderFunctionId,
+                } = await import("../utils/discount-custom-sync.server.js");
+
+                const functionId = await resolveCappedOrderFunctionId(admin);
+
+                const result = await pushCustomDiscountToShopify({
+                    admin,
+                    discount: syncDiscount,
+                    functionId,
+                });
+
+                shopifyDiscountId = result.shopifyDiscountId;
+            } else {
+                const { pushDiscountToShopify } = await import(
+                    "../utils/discount-sync.server.js"
+                );
+
+                const result = await pushDiscountToShopify({
+                    admin,
+                    discount: syncDiscount,
+                    currencyCode: "USD",
+                });
+
+                shopifyDiscountId = result.shopifyDiscountId;
+            }
 
             const nextStatus =
                 new Date(discount.startsAt) > new Date()
@@ -791,6 +849,7 @@ function HiddenFields({ state, group, template, discountType }) {
             <input type="hidden" name="description" value={state.description} />
             <input type="hidden" name="isPercentage" value={String(state.isPercentage)} />
             <input type="hidden" name="discountValue" value={state.discountValue} />
+            <input type="hidden" name="cappedAmount" value={state.cappedAmount} />
             <input type="hidden" name="scopeMode" value={state.scopeMode} />
             <input
                 type="hidden"
@@ -892,6 +951,7 @@ export default function DiscountCreatePage() {
         template,
         groupValue,
         initialState: templateInitialConfig,
+        skipConditionsStep: template?.discountType === "APP_CAPPED",
     });
 
     // useEffect(() => {
@@ -912,11 +972,13 @@ export default function DiscountCreatePage() {
     }, [ errors, state.setCurrentStep ]);
 
     const computedDiscountType =
-        groupValue === "product"
-            ? (state.isPercentage ? "PRODUCT_PERCENTAGE" : "PRODUCT_FIXED")
-            : groupValue === "order"
-                ? (state.isPercentage ? "ORDER_PERCENTAGE" : "ORDER_FIXED")
-                : groupConfig.discountType;
+        template?.discountType === "APP_CAPPED"
+            ? "APP_CAPPED"
+            : groupValue === "product"
+                ? (state.isPercentage ? "PRODUCT_PERCENTAGE" : "PRODUCT_FIXED")
+                : groupValue === "order"
+                    ? (state.isPercentage ? "ORDER_PERCENTAGE" : "ORDER_FIXED")
+                    : groupConfig.discountType;
 
     return (
         <div className="min-h-screen bg-gray-50">

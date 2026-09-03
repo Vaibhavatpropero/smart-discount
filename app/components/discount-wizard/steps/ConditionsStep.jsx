@@ -4,6 +4,8 @@ import { ResourcePicker } from "../../index.js";
 
 export default function ConditionsStep({ state, errors, showTargeting, groupConfig, shopCurrency }) {
     const isBxgy = groupConfig.discountType === "BXGY";
+    const isAppCapped = groupConfig.discountType === "APP_CAPPED";
+    const isAutomaticAppCapped = isAppCapped && state.method === "AUTOMATIC";
 
     // DEBUG:
     // useEffect(() => {
@@ -209,18 +211,20 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                 </div>
             ) : null}
 
-            <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">Minimum purchase requirement</span>
-                <select
-                    value={state.minimumType}
-                    onChange={(e) => state.setMinimumType(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-                >
-                    <option value="NONE">No minimum requirement</option>
-                    <option value="SUBTOTAL">Minimum order amount</option>
-                    <option value="QUANTITY">Minimum item quantity</option>
-                </select>
-            </label>
+            {!isAppCapped ?
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">Minimum purchase requirement</span>
+                    <select
+                        value={state.minimumType}
+                        onChange={(e) => state.setMinimumType(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    >
+                        <option value="NONE">No minimum requirement</option>
+                        <option value="SUBTOTAL">Minimum order amount</option>
+                        <option value="QUANTITY">Minimum item quantity</option>
+                    </select>
+                </label> : null
+            }
 
             {state.minimumType === "SUBTOTAL" ? (
                 <label className="block">
@@ -250,18 +254,27 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                 </label>
             ) : null}
 
-            <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">Usage limit</span>
-                <input
-                    type="number"
-                    min="1"
-                    value={state.usageLimit}
-                    onChange={(e) => state.setUsageLimit(e.target.value)}
-                    placeholder="Unlimited"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-                />
-                {errors.usageLimit ? <span className="mt-1 block text-xs text-red-600">{errors.usageLimit}</span> : null}
-            </label>
+            {/* Usage limit: hide only when APP_CAPPED + AUTOMATIC */}
+            {!isAutomaticAppCapped && (
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">
+                        Usage limit
+                    </span>
+                    <input
+                        type="number"
+                        min="1"
+                        value={state.usageLimit}
+                        onChange={(e) => state.setUsageLimit(e.target.value)}
+                        placeholder="Unlimited"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    />
+                    {errors.usageLimit ? (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {errors.usageLimit}
+                        </span>
+                    ) : null}
+                </label>
+            )}
 
             <div className="space-y-3">
                 {[
@@ -269,17 +282,30 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                     { key: "combineWithOrderDiscounts", label: "Combine with other order discounts" },
                     { key: "combineWithProductDiscounts", label: "Combine with product discounts" },
                     { key: "combineWithShippingDiscounts", label: "Combine with shipping discounts" },
-                ].map((toggle) => (
-                    <label key={toggle.key} className="flex items-center gap-3 text-sm text-gray-700">
-                        <input
-                            type="checkbox"
-                            checked={state[ toggle.key ]}
-                            onChange={(e) => state[ `set${toggle.key[ 0 ].toUpperCase()}${toggle.key.slice(1)}` ](e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        {toggle.label}
-                    </label>
-                ))}
+                ].map((toggle) => {
+                    // Hide only appliesOncePerCustomer when APP_CAPPED + AUTOMATIC
+                    if (isAutomaticAppCapped && toggle.key === "appliesOncePerCustomer") {
+                        return null;
+                    }
+
+                    const setterName =
+                        `set${toggle.key[ 0 ].toUpperCase()}${toggle.key.slice(1)}`;
+
+                    return (
+                        <label
+                            key={toggle.key}
+                            className="flex items-center gap-3 text-sm text-gray-700"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={state[ toggle.key ]}
+                                onChange={(e) => state[ setterName ](e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            {toggle.label}
+                        </label>
+                    );
+                })}
             </div>
         </div>
     );

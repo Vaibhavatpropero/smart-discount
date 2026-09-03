@@ -7,13 +7,16 @@ import {
     markUsageRefunded,
 } from "../utils/discount-usage.server.js";
 
+const SRC = "orders.server"
+
 export async function handleOrdersCreateWebhook({ shop, payload, webhookId }) {
     const shopRecord = await prisma.shop.findUnique({ where: { shopDomain: shop } });
     if (!shopRecord) {
-        logger.warn("orders", "Shop not found for ORDERS_CREATE", { shop, webhookId });
+        logger.warn(SRC, "Shop not found for ORDERS_CREATE", { shop, webhookId });
         return;
     }
-    await upsertUsageFromOrder({ shopId: shopRecord.id, order: payload, webhookId });
+    logger.info(SRC, "recived ordersUpdate payload", { payload })
+    // await upsertUsageFromOrder({ shopId: shopRecord.id, order: payload, webhookId });
 }
 
 export async function handleOrdersUpdatedWebhook({ shop, payload, webhookId }) {
