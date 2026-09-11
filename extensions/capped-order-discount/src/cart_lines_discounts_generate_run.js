@@ -31,59 +31,77 @@ function formatCurrencyAmount(amount, currencyCode) {
   return `${symbol}${value}`;
 }
 
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
-    hash = (hash * 31 + str.charCodeAt(i)) | 0; // 32-bit signed
-  }
-  return hash >>> 0; // unsigned
-}
-
-function pseudoRandom01(seed) {
-  // simple LCG based on the hash
-  let x = (seed + 0x9e3779b9) >>> 0;
-  x ^= x << 13;
-  x ^= x >>> 17;
-  x ^= x << 5;
-  // map to [0, 1)
-  return (x >>> 0) / 0xffffffff;
-}
-
-function computeBandedRandomDiscount({ subtotal, cap, seed }) {
-  if (!Number.isFinite(subtotal) || subtotal <= 0) {
-    return 0;
-  }
-
-  const ratio = subtotal / cap;
-
-  let minFactor;
-  let maxFactor;
-
-  if (ratio >= 4) {
-    // [0.6 * cap, 1.0 * cap]
-    minFactor = 0.6;
-    maxFactor = 1.0;
-  } else if (ratio >= 3) {
-    // [0.2 * cap, 0.6 * cap]
-    minFactor = 0.2;
-    maxFactor = 0.6;
-  } else if (ratio >= 1) {
-    // [0.0 * cap, 0.2 * cap]
-    minFactor = 0.0;
-    maxFactor = 0.2;
-  } else {
-    // subtotal < cap: very small band, e.g. up to 10% of cap
-    minFactor = 0.0;
-    maxFactor = 0.1;
-  }
-
-  const r = pseudoRandom01(seed);
-  const factor = minFactor + r * (maxFactor - minFactor);
-  const amount = cap * factor;
-
-  // round to cents
-  return Math.max(0, Math.round(amount * 100) / 100);
-}
+/*
+ * ============================================================================
+ * OLD LOGIC (commented out for reference)
+ * ============================================================================
+ * The previous implementation used a pseudo-random banded discount approach
+ * based on cart line IDs. This has been replaced with a simple capped percentage
+ * logic as per the new requirements.
+ *
+ * function hashString(str) {
+ *   let hash = 0;
+ *   for (let i = 0; i < str.length; i += 1) {
+ *     hash = (hash * 31 + str.charCodeAt(i)) | 0; // 32-bit signed
+ *   }
+ *   return hash >>> 0; // unsigned
+ * }
+ *
+ * function pseudoRandom01(seed) {
+ *   // simple LCG based on the hash
+ *   let x = (seed + 0x9e3779b9) >>> 0;
+ *   x ^= x << 13;
+ *   x ^= x >>> 17;
+ *   x ^= x << 5;
+ *   // map to [0, 1)
+ *   return (x >>> 0) / 0xffffffff;
+ * }
+ *
+ * function computeBandedRandomDiscount({ subtotal, cap, seed }) {
+ *   if (!Number.isFinite(subtotal) || subtotal <= 0) {
+ *     return 0;
+ *   }
+ *
+ *   const ratio = subtotal / cap;
+ *
+ *   let minFactor;
+ *   let maxFactor;
+ *
+ *   if (ratio >= 4) {
+ *     // [0.6 * cap, 1.0 * cap]
+ *     minFactor = 0.6;
+ *     maxFactor = 1.0;
+ *   } else if (ratio >= 3) {
+ *     // [0.2 * cap, 0.6 * cap]
+ *     minFactor = 0.2;
+ *     maxFactor = 0.6;
+ *   } else if (ratio >= 1) {
+ *     // [0.0 * cap, 0.2 * cap]
+ *     minFactor = 0.0;
+ *     maxFactor = 0.2;
+ *   } else {
+ *     // subtotal < cap: very small band, e.g. up to 10% of cap
+ *     minFactor = 0.0;
+ *     maxFactor = 0.1;
+ *   }
+ *
+ *   const r = pseudoRandom01(seed);
+ *   const factor = minFactor + r * (maxFactor - minFactor);
+ *   const amount = cap * factor;
+ *
+ *   // round to cents
+ *   return Math.max(0, Math.round(amount * 100) / 100);
+ * }
+ *
+ * // In the main function, the old logic was:
+ * // const cap = configuration.cappedAmount;
+ * // const lineIdKey = (input.cart.lines || [])
+ * //   .map((line) => line.id)
+ * //   .join("|");
+ * // const seed = hashString(lineIdKey);
+ * // const finalDiscount = computeBandedRandomDiscount({ subtotal, cap, seed });
+ * ============================================================================
+ */
 
 function parseConfiguration(jsonValue) {
   try {
@@ -105,6 +123,44 @@ function parseConfiguration(jsonValue) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Calculates the capped percentage discount.
+ *
+ * Logic:
+ * - percent off order value = subtotal * (percent / 100)
+ * - If percent off > capped amount: discount = capped amount (flat)
+ * - Else: discount = percent off order value
+ *
+ * @param {number} subtotal - The cart subtotal amount
+ * @param {number} percent - The percentage discount (e.g., 20 for 20%)
+ * @param {number} cappedAmount - The maximum discount amount (e.g., 200 for $200)
+ * @returns {number} The final discount amount (rounded to 2 decimal places)
+ */
+function computeCappedPercentageDiscount({ subtotal, percent, cappedAmount }) {
+  if (!Number.isFinite(subtotal) || subtotal <= 0) {
+    return 0;
+  }
+
+  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+    return 0;
+  }
+
+  if (!Number.isFinite(cappedAmount) || cappedAmount <= 0) {
+    return 0;
+  }
+
+  // Calculate percentage off the order value
+  const percentageDiscount = subtotal * (percent / 100);
+
+  // Apply the cap logic
+  // If percentage discount exceeds the capped amount, use the flat capped amount
+  // Otherwise, use the percentage discount
+  const finalDiscount = percentageDiscount > cappedAmount ? cappedAmount : percentageDiscount;
+
+  // Round to 2 decimal places (cents)
+  return Math.max(0, Math.round(finalDiscount * 100) / 100);
 }
 
 /**
@@ -134,23 +190,15 @@ export function cartLinesDiscountsGenerateRun(input) {
     return EMPTY_RESULT;
   }
 
-  const cap = configuration.cappedAmount;
-
-  // Build a deterministic seed from all cart line IDs
-  const lineIdKey = (input.cart.lines || [])
-    .map((line) => line.id)
-    .join("|");
-
-  if (!lineIdKey) {
-    return EMPTY_RESULT;
-  }
-
-  const seed = hashString(lineIdKey);
-
-  const finalDiscount = computeBandedRandomDiscount({
+  // NEW LOGIC: Simple capped percentage discount
+  // percent off = configuration.percent (e.g., 20%)
+  // capped amount = configuration.cappedAmount (e.g., $200)
+  // If 20% off order value > capped amount → discount = flat capped amount
+  // Else → discount = 20% off order value
+  const finalDiscount = computeCappedPercentageDiscount({
     subtotal,
-    cap,
-    seed,
+    percent: configuration.percent,
+    cappedAmount: configuration.cappedAmount,
   });
 
   // If the computed discount is effectively zero, do nothing

@@ -1,6 +1,6 @@
 // app/routes/app.discounts-edit.jsx
+import { useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-// import { useEffect } from "react";
 import { data, Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import prisma from "../db.server.js";
 import { authenticate } from "../shopify.server.js";
@@ -10,42 +10,50 @@ import {
     requireCreateDiscountAccess,
 } from "../utils/plan-gate.server.js";
 import {
-    resolveDiscountIdentityForSave,
-} from "../utils/discount-identity.server.js";
-import {
     getDiscountTemplateByDiscount,
-    getDiscountTemplateBySlug,
+    getDiscountTemplateBySlug
 } from "../configs/discount-templates.js";
+import {
+    buildDiscountMatchKey,
+    resolveDiscountCollision,
+} from "../utils/discount-identity.server.js";
 import {
     getGroupConfig,
     getGroupKeyFromDiscountType,
-    parseJsonArray,
     buildDraftPayload,
     buildBxgyConfigPayload,
     buildInitialState,
 } from "../helpers/NativeDiscountsPayloadHelper.js";
-import BasicsStep from "../components/discount-wizard/steps/BasicsStep.jsx";
-import ValueStep from "../components/discount-wizard/steps/ValueStep.jsx";
-import ConditionsStep from "../components/discount-wizard/steps/ConditionsStep.jsx";
-import ScheduleStep from "../components/discount-wizard/steps/ScheduleStep.jsx";
-import ReviewStep from "../components/discount-wizard/steps/ReviewStep.jsx";
-import {
-    StepProgress,
-    StickyActionBar,
-    STEPS,
-} from "../components/discount-wizard/WizardShell.jsx";
 import { useDiscountWizardState } from "../components/discount-wizard/useDiscountWizardState.js";
 import { RouteErrorFallback } from "../components";
-import hydrateSelectedResource from "../utils/hydrateSelectedResource.server.js"
-// import { logger } from "../utils/logger.server.js";
+import hydrateSelectedResource from "../utils/hydrateSelectedResource.server.js";
+import { logger } from "../utils/logger.server.js";
 
-const SRC = "app.discounts-edit";
+// Import shared components and utilities
+import {
+    ERROR_STEP_BY_FIELD,
+    StepContent,
+    HiddenFields,
+    computeDiscountType,
+    getVisibleSteps,
+    useWizardNavigation,
+} from "../components/discount-wizard/DiscountWizardComponents.jsx";
+import { validateDiscountForm } from "../utils/discount-validation.server.js";
+import { handleSyncFailure, publishDiscountToShopify, validatePublishLimits } from "../utils/discount-sync-handler.server.js";
+import { StepProgress } from "../components/discount-wizard/WizardShell.jsx";
+
+const SRC = "discounts-edit";
 
 export async function loader({ request }) {
+    // ============================================
+    // STEP 1: Authentication & Authorization
+    // ============================================
     const { admin } = await authenticate.admin(request);
-    const context = await requireCreateDiscountAccess(request);
-    const { shop, access } = context;
+    const { shop, access, trialDaysRemaining } = await requireCreateDiscountAccess(request);
 
+    // ============================================
+    // STEP 2: Parse URL Parameters
+    // ============================================
     const url = new URL(request.url);
     const id = String(url.searchParams.get("id") || "").trim();
 
@@ -53,6 +61,9 @@ export async function loader({ request }) {
         throw data({ message: "Draft id is required." }, { status: 400 });
     }
 
+    // ============================================
+    // STEP 3: Fetch Discount from Database
+    // ============================================
     const discount = await prisma.discount.findFirst({
         where: {
             id,
@@ -67,17 +78,23 @@ export async function loader({ request }) {
         throw data({ message: "Draft not found." }, { status: 404 });
     }
 
+    // ============================================
+    // STEP 4: Validate Discount Status (only draft/failed can be edited)
+    // ============================================
     if (discount.status !== "DRAFT" && discount.status !== "FAILED") {
         throw data({ message: "Only draft discounts can be edited here." }, { status: 400 });
     }
 
+    // ============================================
+    // STEP 5: Validate Plan Access for This Discount
+    // ============================================
     const accessState = getDiscountAccessState(access, discount);
 
     if (!accessState.canEdit) {
         throw data(
             {
                 message:
-                    accessState.reason === "trialexpired"
+                    accessState.reason === "trial_expired"
                         ? "Your trial has expired. Upgrade to edit this discount."
                         : "Your current plan cannot edit this discount.",
             },
@@ -85,9 +102,16 @@ export async function loader({ request }) {
         );
     }
 
+    // ============================================
+    // STEP 6: Determine Discount Group & Config
+    // ============================================
     const group = getGroupKeyFromDiscountType(discount.discountType);
     const groupConfig = getGroupConfig(group);
 
+    // ============================================
+    // STEP 7: Hydrate Related Resources (Products/Collections)
+    // Fetch full resource details for UI display
+    // ============================================
     const hydratedTargetProducts =
         group === "product" && Array.isArray(discount.targetProducts) && discount.targetProducts.length > 0
             ? await hydrateSelectedResource({
@@ -150,6 +174,9 @@ export async function loader({ request }) {
             })
             : [];
 
+    // ============================================
+    // STEP 8: Build Initial Wizard State from Database
+    // ============================================
     const initialState = buildInitialState(
         {
             ...discount,
@@ -168,32 +195,48 @@ export async function loader({ request }) {
         group
     );
 
+    // ============================================
+    // STEP 9: Resolve Template for This Discount
+    // ============================================
     const template = getDiscountTemplateByDiscount({
         ...discount,
         bxgyConfig: discount.bxgyConfig,
     });
 
+    // ============================================
+    // STEP 10: Return Loader Data
+    // ============================================
     return data({
         shop,
         access,
+        trialDaysRemaining,
         discountId: discount.id,
         discount,
         group,
         groupConfig,
         template,
         initialState,
-        shopCurrency: shop.currencyCode || "USD",
+        shopCurrency: shop.currency || "USD",
         canPublish: true,
         adminReady: Boolean(admin),
     });
 }
 
 export const action = async ({ request }) => {
-    const { admin } = await authenticate.admin(request);
-    const context = await requireCreateDiscountAccess(request);
-    const { shop, access } = context;
-    const formData = await request.formData();
+    let shopId = null;
+    let discountId = null;
 
+    // ============================================
+    // STEP 1: Authentication & Authorization
+    // ============================================
+    const { admin } = await authenticate.admin(request);
+    const { shop, access } = await requireCreateDiscountAccess(request);
+    shopId = shop.id;
+
+    // ============================================
+    // STEP 2: Parse Form Data & Validate Discount Exists
+    // ============================================
+    const formData = await request.formData();
     const id = String(formData.get("id") || "").trim();
 
     if (!id) {
@@ -206,7 +249,7 @@ export const action = async ({ request }) => {
     const existingDiscount = await prisma.discount.findFirst({
         where: {
             id,
-            shopId: shop.id,
+            shopId,
         },
         include: {
             bxgyConfig: true,
@@ -220,6 +263,22 @@ export const action = async ({ request }) => {
         );
     }
 
+    logger.info(SRC, "Request form parsed", {
+        shopId,
+        intent: formData.get("intent") || null,
+        group: formData.get("group") || null,
+        method: formData.get("method") || null,
+        hasTitle: Boolean(formData.get("title")),
+        hasDiscountCode: Boolean(formData.get("discountCode")),
+    });
+
+    const intent = String(formData.get("intent") || "draft");
+    const templateSlug = String(formData.get("templateSlug") || "").trim() || null;
+    const template = templateSlug ? getDiscountTemplateBySlug(templateSlug) : null;
+
+    // ============================================
+    // STEP 3: Validate Plan Access for This Discount
+    // ============================================
     const accessState = getDiscountAccessState(access, existingDiscount);
 
     if (!accessState.canEdit) {
@@ -236,6 +295,9 @@ export const action = async ({ request }) => {
         );
     }
 
+    // ============================================
+    // STEP 4: Validate Discount Status
+    // ============================================
     if (
         existingDiscount.status !== "DRAFT" &&
         existingDiscount.status !== "FAILED"
@@ -250,244 +312,56 @@ export const action = async ({ request }) => {
         );
     }
 
+    // ============================================
+    // STEP 5: Determine Discount Group & Config
+    // ============================================
     const group = String(
         formData.get("group") ||
         getGroupKeyFromDiscountType(existingDiscount.discountType)
     ).toLowerCase();
 
     const groupConfig = getGroupConfig(group);
-    const title = String(formData.get("title") || "").trim();
-    const method = String(formData.get("method") || groupConfig.method);
-    const discountCode = String(formData.get("discountCode") || "").trim();
 
-    const discountValueRaw = formData.get("discountValue");
-    const discountValue =
-        discountValueRaw === "" || discountValueRaw == null
-            ? null
-            : Number(discountValueRaw);
 
-    const scopeMode = String(formData.get("scopeMode") || "");
-    const targetProducts = parseJsonArray(formData.get("targetProducts"));
-    const targetCollections = parseJsonArray(formData.get("targetCollections"));
+    // ============================================
+    // STEP 5: Validate Publish Limits (for publish intent)
+    // ============================================
+    if (intent === "publish") {
+        const activeDiscountCount = await prisma.discount.count({
+            where: {
+                shopId,
+                status: { in: [ "ACTIVE", "SCHEDULED" ] },
+            },
+        });
 
-    if (group === "product") {
-        if (scopeMode === "SPECIFIC_PRODUCTS" && targetProducts.length === 0) {
-            return data(
-                {
-                    errors: {
-                        targetProducts: "Add at least one product target.",
-                    },
-                },
-                { status: 400 }
-            );
-        }
-
-        if (
-            scopeMode === "SPECIFIC_COLLECTIONS" &&
-            targetCollections.length === 0
-        ) {
-            return data(
-                {
-                    errors: {
-                        targetCollections: "Add at least one collection target.",
-                    },
-                },
-                { status: 400 }
-            );
-        }
+        await validatePublishLimits({
+            request,
+            activeDiscountCount,
+            discountType: groupConfig.discountType,
+            template,
+            access,
+            shopId,
+            src: SRC,
+        });
     }
 
-    const minimumType = String(formData.get("minimumType") || "NONE");
-    const minimumSubtotal = formData.get("minimumSubtotal");
-    const minimumQuantity = formData.get("minimumQuantity");
-    const startsAt = formData.get("startsAt");
-    const endsAt = formData.get("endsAt");
-    const usageLimit = formData.get("usageLimit");
-
-    const errors = {};
-    const postedDiscountType = String(
-        formData.get("discountType") ||
-        existingDiscount.discountType ||
-        groupConfig.discountType
-    );
-    const isBxgy = postedDiscountType === "BXGY";
-    const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
-
-    if (!title) {
-        errors.title = "Title is required.";
-    }
-
-    if (method === "CODE" && !discountCode) {
-        errors.discountCode =
-            "Discount code is required when code method is selected.";
-    }
-
-    if (
-        !isBxgy &&
-        !isFreeShipping &&
-        (discountValue == null ||
-            !Number.isFinite(discountValue) ||
-            discountValue <= 0)
-    ) {
-        errors.discountValue = "Enter a valid discount value.";
-    }
-
-    if (
-        !isBxgy &&
-        !isFreeShipping &&
-        String(formData.get("isPercentage") || "true") === "true" &&
-        discountValue > 100
-    ) {
-        errors.discountValue = "Percentage value cannot be more than 100.";
-    }
-
-    if (isBxgy) {
-        const buyRequirementType = String(
-            formData.get("bxgyBuyRequirementType") || "QUANTITY"
-        );
-        const buyQuantity = Number(formData.get("bxgyBuyQuantity"));
-        const buyAmount = Number(formData.get("bxgyBuyAmount"));
-        const buyTargetType = String(
-            formData.get("bxgyBuyTargetType") || "PRODUCTS"
-        );
-        const buyProducts = parseJsonArray(formData.get("bxgyBuyProducts"));
-        const buyCollections = parseJsonArray(
-            formData.get("bxgyBuyCollections")
-        );
-
-        const getQuantity = Number(formData.get("bxgyGetQuantity"));
-        const getEffect = String(formData.get("bxgyGetEffect") || "FREE");
-        const getPercentage = Number(formData.get("bxgyGetPercentage"));
-        const getTargetType = String(
-            formData.get("bxgyGetTargetType") || "PRODUCTS"
-        );
-        const getProducts = parseJsonArray(formData.get("bxgyGetProducts"));
-        const getCollections = parseJsonArray(
-            formData.get("bxgyGetCollections")
-        );
-
-        const usesPerOrderLimitRaw = formData.get("bxgyUsesPerOrderLimit");
-
-        if (
-            buyRequirementType === "QUANTITY" &&
-            (!Number.isInteger(buyQuantity) || buyQuantity <= 0)
-        ) {
-            errors.bxgyBuyQuantity = "Enter a valid buy quantity.";
-        }
-
-        if (
-            buyRequirementType === "AMOUNT" &&
-            (!Number.isFinite(buyAmount) || buyAmount <= 0)
-        ) {
-            errors.bxgyBuyAmount = "Enter a valid spend amount.";
-        }
-
-        if (buyTargetType === "PRODUCTS" && buyProducts.length === 0) {
-            errors.bxgyBuyProducts =
-                "Add at least one product customers must buy.";
-        }
-
-        if (buyTargetType === "COLLECTIONS" && buyCollections.length === 0) {
-            errors.bxgyBuyCollections =
-                "Add at least one collection customers must buy from.";
-        }
-
-        if (!Number.isInteger(getQuantity) || getQuantity <= 0) {
-            errors.bxgyGetQuantity = "Enter a valid reward quantity.";
-        }
-
-        if (
-            getEffect === "PERCENTAGE" &&
-            (!Number.isFinite(getPercentage) ||
-                getPercentage <= 0 ||
-                getPercentage > 100)
-        ) {
-            errors.bxgyGetPercentage = "Enter a valid reward percentage.";
-        }
-
-        if (getEffect === "AMOUNT_OFF_EACH") {
-            const getAmount = Number(formData.get("bxgyGetAmount"));
-
-            if (!Number.isFinite(getAmount) || getAmount <= 0) {
-                errors.bxgyGetAmount = "Enter a valid amount off each item.";
-            }
-        }
-
-        if (getTargetType === "PRODUCTS" && getProducts.length === 0) {
-            errors.bxgyGetProducts = "Add at least one reward product.";
-        }
-
-        if (getTargetType === "COLLECTIONS" && getCollections.length === 0) {
-            errors.bxgyGetCollections =
-                "Add at least one reward collection.";
-        }
-
-        if (
-            usesPerOrderLimitRaw &&
-            (!Number.isInteger(Number(usesPerOrderLimitRaw)) ||
-                Number(usesPerOrderLimitRaw) <= 0)
-        ) {
-            errors.bxgyUsesPerOrderLimit = "Uses per order must be a positive whole number.";
-        }
-    }
-
-    if (isFreeShipping) {
-        const shippingDestinationMode = String(
-            formData.get("shippingDestinationMode") || "ALL"
-        );
-        const shippingDestinationCountries = parseJsonArray(
-            formData.get("shippingDestinationCountries")
-        );
-        const maximumShippingPriceRaw = formData.get("maximumShippingPrice");
-
-        if (
-            shippingDestinationMode === "SPECIFIC_COUNTRIES" &&
-            shippingDestinationCountries.length === 0
-        ) {
-            errors.shippingDestinationCountries =
-                "Add at least one destination country.";
-        }
-
-        if (
-            maximumShippingPriceRaw !== "" &&
-            maximumShippingPriceRaw != null &&
-            (!Number.isFinite(Number(maximumShippingPriceRaw)) ||
-                Number(maximumShippingPriceRaw) < 0)
-        ) {
-            errors.maximumShippingPrice =
-                "Enter a valid maximum shipping price.";
-        }
-    }
-
-    if (
-        minimumType === "SUBTOTAL" &&
-        (!minimumSubtotal || Number(minimumSubtotal) <= 0)
-    ) {
-        errors.minimumSubtotal = "Enter a valid minimum subtotal.";
-    }
-
-    if (
-        minimumType === "QUANTITY" &&
-        (!minimumQuantity || Number(minimumQuantity) <= 0)
-    ) {
-        errors.minimumQuantity = "Enter a valid minimum quantity.";
-    }
-
-    if (
-        usageLimit &&
-        (!Number.isInteger(Number(usageLimit)) || Number(usageLimit) <= 0)
-    ) {
-        errors.usageLimit = "Usage limit must be a positive whole number.";
-    }
-
-    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
-        errors.endsAt = "End date must be after the start date.";
-    }
+    // ============================================
+    // STEP 6: Validate Form Data
+    // ============================================
+    const { errors, parsedData } = await validateDiscountForm({
+        formData,
+        access,
+        groupConfig,
+        existingDiscount,
+    });
 
     if (Object.keys(errors).length > 0) {
         return data({ errors }, { status: 400 });
     }
 
+    // ============================================
+    // STEP 7: Build Draft Payload for Update
+    // ============================================
     const payload = buildDraftPayload({
         shopId: shop.id,
         formData,
@@ -496,6 +370,73 @@ export const action = async ({ request }) => {
         existingDiscount,
     });
 
+    logger.info(SRC, "Draft payload built", { ...payload });
+
+    const discountMethod = payload.method || "AUTOMATIC";
+    const discountCode = payload.shopifyDiscountCode || null;
+
+    const { matchKey, isMatchable } = buildDiscountMatchKey(
+        payload.title,
+        "DRAFT",
+        discountMethod,
+        discountCode
+    );
+
+    payload.matchKey = matchKey;
+    payload.isMatchable = isMatchable;
+    payload.matchType = discountMethod === "CODE" ? "CODE" : "AUTOMATIC";
+
+    if (intent === "publish") {
+        const collision = await resolveDiscountCollision({
+            shopId,
+            discountTitle: payload.title,
+            discountMethod,
+            discountCode,
+            excludeDiscountId: existingDiscount.id,
+        });
+
+        if (collision.isCollided) {
+            logger.warn(SRC, "Edit publish blocked by identity collision", {
+                shopId,
+                discountId: existingDiscount.id,
+                matchType: collision.matchType,
+                matchedDiscountId: collision.matchedDiscountId,
+                matchKey: collision.matchKey,
+            });
+
+            return data(
+                {
+                    errors: {
+                        form:
+                            collision.matchType === "CODE"
+                                ? "Another active or scheduled discount already uses this code."
+                                : "Another active or scheduled automatic discount already uses this title.",
+                        ...(collision.matchType === "CODE"
+                            ? {
+                                discountCode:
+                                    "Another active or scheduled discount already uses this code.",
+                            }
+                            : {
+                                title:
+                                    "Another active or scheduled automatic discount already uses this title.",
+                            }),
+                    },
+                    collision: {
+                        matchType: collision.matchType,
+                        matchedDiscountId: collision.matchedDiscountId,
+                        matchedTitle: collision.matchedDiscount?.title || null,
+                        matchedCode:
+                            collision.matchedDiscount?.shopifyDiscountCode || null,
+                    },
+                },
+                { status: 409 }
+            );
+        }
+    }
+
+    // ============================================
+    // STEP 8: Final Plan Checks
+    // ============================================
     if (!canUseDiscountType(access, payload.discountType)) {
         return data(
             {
@@ -507,9 +448,18 @@ export const action = async ({ request }) => {
         );
     }
 
-    const intent = String(formData.get("intent") || "draft");
+    // ============================================
+    // STEP 9: Update Discount in Database
+    // ============================================
+    logger.info(SRC, "Update discount draft", {
+        shopId,
+        intent,
+        title: payload.title,
+    });
+
     const bxgyConfigPayload = buildBxgyConfigPayload(formData);
 
+    // Exclude fields that shouldn't be updated directly
     const {
         shopId: _payloadShopId,
         scopeMode: _payloadScopeMode,
@@ -521,122 +471,74 @@ export const action = async ({ request }) => {
         where: { id: existingDiscount.id },
         data: {
             ...updateData,
-
-            ...(payload.discountType === "BXGY"
-                ? {
-                    bxgyConfig: {
+            bxgyConfig:
+                payload.discountType === "BXGY"
+                    ? {
                         upsert: {
                             create: bxgyConfigPayload,
                             update: bxgyConfigPayload,
                         },
-                    },
-                }
-                : {}),
+                    }
+                    : existingDiscount.bxgyConfig
+                        ? {
+                            delete: true,
+                        }
+                        : undefined,
         },
         include: {
             bxgyConfig: true,
         },
     });
 
-    const syncDiscount = {
-        ...updatedDiscount,
-        group,
-        scopeMode,
-    };
+    logger.info(SRC, "Update-Discount draft created", {
+        shopId,
+        discountId: updatedDiscount.id,
+        status: updatedDiscount.status,
+        matchType: updatedDiscount.matchType,
+        isMatchable: updatedDiscount.isMatchable,
+    });
 
+    // ============================================
+    // STEP 10: Handle Draft Intent (save only)
+    // ============================================
     if (intent === "draft") {
-        const draftIdentity = await resolveDiscountIdentityForSave({
-            shopId: shop.id,
-            method: updatedDiscount.method,
-            title: updatedDiscount.title,
-            shopifyDiscountCode: updatedDiscount.shopifyDiscountCode,
-            status: "DRAFT",
-            excludeDiscountId: updatedDiscount.id,
-        });
-
-        if (draftIdentity.ok) {
-            await prisma.discount.update({
-                where: { id: updatedDiscount.id },
-                data: {
-                    matchType: draftIdentity.identity.matchType,
-                    matchKey: draftIdentity.identity.matchKey,
-                    isMatchable: false, // drafts are never matchable
-                    identityVersion: draftIdentity.identity.identityVersion,
-                },
-            });
-        }
-
-        return redirect(
-            `/app/discounts-edit?id=${updatedDiscount.id}&saved=1`
-        );
+        return redirect("/app/discounts");
     }
 
+    // ============================================
+    // STEP 11: Publish to Shopify (publish intent)
+    // ============================================
     try {
-        const { pushDiscountToShopify } = await import(
-            "../utils/discount-sync.server.js"
-        );
-
-        const nextStatus =
-            new Date(updatedDiscount.startsAt) > new Date()
-                ? "SCHEDULED"
-                : "ACTIVE";
-
-        const identityResult = await resolveDiscountIdentityForSave({
-            shopId: shop.id,
-            method: updatedDiscount.method,
-            title: updatedDiscount.title,
-            shopifyDiscountCode: updatedDiscount.shopifyDiscountCode,
-            status: nextStatus,
-            excludeDiscountId: updatedDiscount.id,
-        });
-
-        if (!identityResult.ok) {
-            return data(
-                {
-                    errors: identityResult.errors || {
-                        form: "This discount identity collides with another matchable discount.",
-                    },
-                },
-                { status: 400 }
-            );
-        }
-
-        const { shopifyDiscountId } = await pushDiscountToShopify({
+        await publishDiscountToShopify({
             admin,
-            discount: syncDiscount,
-            currencyCode: shop.currency || "USD",
-        });
-
-        await prisma.discount.update({
-            where: { id: updatedDiscount.id },
-            data: {
-                status: nextStatus,
-                shopifyDiscountId,
-                lastSyncedAt: new Date(),
-                lastError: null,
-                matchType: identityResult.identity.matchType,
-                matchKey: identityResult.identity.matchKey,
-                isMatchable: identityResult.identity.isMatchable,
-                identityVersion: identityResult.identity.identityVersion,
-            },
+            discount: updatedDiscount,
+            group,
+            scopeMode: parsedData.scopeMode,
+            shopId,
+            prisma,
+            src: SRC,
         });
 
         return redirect(`/app/discounts`);
-    } catch (err) {
-        await prisma.discount.update({
-            where: { id: updatedDiscount.id },
-            data: {
-                status: "FAILED",
-                lastError: String(err?.message || err),
-                isMatchable: false,
-            },
+    } catch (syncError) {
+        // Sync failed - discount remains as draft with error
+        await handleSyncFailure({
+            prisma,
+            discountId: updatedDiscount.id,
+            error: syncError,
+            src: SRC,
+        });
+
+        logger.error(SRC, "Shopify discount publish failed", {
+            shopId: shop.id,
+            discountId: updatedDiscount.id,
+            error: logger.serializeError(syncError),
         });
 
         return data(
             {
                 errors: {
-                    form: `Saved draft changes, but publishing to Shopify failed: ${err?.message || err
-                        }`,
+                    form: `Saved draft changes, but publishing to Shopify failed: ${syncError?.message || syncError}`,
                 },
             },
             { status: 422 }
@@ -644,139 +546,13 @@ export const action = async ({ request }) => {
     }
 };
 
-function StepContent({ state, errors, groupConfig, shopCurrency }) {
-    switch (state.currentStep) {
-        case 0:
-            return <BasicsStep state={state} errors={errors} groupConfig={groupConfig} />;
-        case 1:
-            return (
-                <ValueStep
-                    state={state}
-                    errors={errors}
-                    shopCurrency={shopCurrency}
-                    groupConfig={groupConfig}
-                />
-            );
-        case 2:
-            return (
-                <ConditionsStep
-                    state={state}
-                    errors={errors}
-                    showTargeting={groupConfig.supportsTargets}
-                    groupConfig={groupConfig}
-                    shopCurrency={shopCurrency}
-                />
-            );
-        case 3:
-            return <ScheduleStep state={state} errors={errors} />;
-        case 4:
-        default:
-            return (
-                <ReviewStep
-                    state={state}
-                    groupConfig={groupConfig}
-                    shopCurrency={shopCurrency}
-                />
-            );
-    }
-}
-
-function HiddenFields({ state, group, template, discountId, discountType }) {
-    return (
-        <>
-            <input type="hidden" name="id" value={discountId} />
-            <input type="hidden" name="group" value={group} />
-            <input type="hidden" name="templateSlug" value={template?.slug ?? ""} />
-            <input type="hidden" name="discountType" value={discountType} />
-            <input type="hidden" name="title" value={state.title} />
-            <input type="hidden" name="description" value={state.description} />
-            <input type="hidden" name="method" value={state.method} />
-            <input type="hidden" name="discountCode" value={state.discountCode} />
-            <input type="hidden" name="isPercentage" value={String(Boolean(state.isPercentage))} />
-            <input type="hidden" name="discountValue" value={state.discountValue} />
-            <input type="hidden" name="minimumType" value={state.minimumType || "NONE"} />
-            <input type="hidden" name="minimumSubtotal" value={state.minimumSubtotal} />
-            <input type="hidden" name="minimumQuantity" value={state.minimumQuantity} />
-            <input type="hidden" name="usageLimit" value={state.usageLimit} />
-            <input
-                type="hidden"
-                name="appliesOncePerCustomer"
-                value={String(Boolean(state.appliesOncePerCustomer))}
-            />
-            <input
-                type="hidden"
-                name="combineWithOrderDiscounts"
-                value={String(Boolean(state.combineWithOrderDiscounts))}
-            />
-            <input
-                type="hidden"
-                name="combineWithProductDiscounts"
-                value={String(Boolean(state.combineWithProductDiscounts))}
-            />
-            <input
-                type="hidden"
-                name="combineWithShippingDiscounts"
-                value={String(Boolean(state.combineWithShippingDiscounts))}
-            />
-            <input type="hidden" name="scopeMode" value={state.scopeMode} />
-            <input
-                type="hidden"
-                name="targetProducts"
-                value={JSON.stringify(state.targetProducts.map((item) => item?.id || item))}
-            />
-            <input
-                type="hidden"
-                name="targetCollections"
-                value={JSON.stringify(state.targetCollections.map((item) => item?.id || item))}
-            />
-            <input type="hidden" name="bxgyBuyRequirementType" value={state.bxgyBuyRequirementType || "QUANTITY"} />
-            <input type="hidden" name="bxgyBuyQuantity" value={state.bxgyBuyQuantity} />
-            <input type="hidden" name="bxgyBuyAmount" value={state.bxgyBuyAmount} />
-            <input type="hidden" name="bxgyBuyTargetType" value={state.bxgyBuyTargetType || "PRODUCTS"} />
-            <input
-                type="hidden"
-                name="bxgyBuyProducts"
-                value={JSON.stringify(state.bxgyBuyProducts.map((item) => item?.id || item))}
-            />
-            <input
-                type="hidden"
-                name="bxgyBuyCollections"
-                value={JSON.stringify(state.bxgyBuyCollections.map((item) => item?.id || item))}
-            />
-            <input type="hidden" name="bxgyGetQuantity" value={state.bxgyGetQuantity} />
-            <input type="hidden" name="bxgyGetEffect" value={state.bxgyGetEffect || "FREE"} />
-            <input type="hidden" name="bxgyGetPercentage" value={state.bxgyGetPercentage} />
-            <input type="hidden" name="bxgyGetAmount" value={state.bxgyGetAmount} />
-            <input type="hidden" name="bxgyGetTargetType" value={state.bxgyGetTargetType || "PRODUCTS"} />
-            <input
-                type="hidden"
-                name="bxgyGetProducts"
-                value={JSON.stringify(state.bxgyGetProducts.map((item) => item?.id || item))}
-            />
-            <input
-                type="hidden"
-                name="bxgyGetCollections"
-                value={JSON.stringify(state.bxgyGetCollections.map((item) => item?.id || item))}
-            />
-            <input type="hidden" name="bxgyUsesPerOrderLimit" value={state.bxgyUsesPerOrderLimit} />
-            <input type="hidden" name="shippingDestinationMode" value={state.shippingDestinationMode || "ALL"} />
-            <input
-                type="hidden"
-                name="shippingDestinationCountries"
-                value={JSON.stringify(state.shippingDestinationCountries)}
-            />
-            <input type="hidden" name="maximumShippingPrice" value={state.maximumShippingPrice} />
-            <input type="hidden" name="startsAt" value={state.startsAt} />
-            <input type="hidden" name="endsAt" value={state.endsAt} />
-        </>
-    );
-}
+// ============================================
+// UI Components
+// ============================================
 
 export default function DiscountEditRoute() {
     const {
-        access,
         discountId,
-        discount,
         group,
         groupConfig,
         template,
@@ -789,16 +565,6 @@ export default function DiscountEditRoute() {
     const errors = actionData?.errors || {};
     const busy = navigation.state !== "idle";
 
-    // DEBUG:
-    // useEffect(() => {
-    //     console.log("initialState bxgy", {
-    //         bxgyBuyProducts: initialState?.bxgyBuyProducts,
-    //         bxgyBuyCollections: initialState?.bxgyBuyCollections,
-    //         bxgyGetProducts: initialState?.bxgyGetProducts,
-    //         bxgyGetCollections: initialState?.bxgyGetCollections,
-    //     });
-    // }, [ initialState ])
-
     const state = useDiscountWizardState({
         groupConfig,
         template: null,
@@ -806,37 +572,22 @@ export default function DiscountEditRoute() {
         initialState,
     });
 
-    const stepItems = STEPS.filter((step) => {
-        if (group === "bxgy" || group === "shipping") {
-            return step.key !== "targeting";
+    useEffect(() => {
+        if (!errors) return;
+
+        const firstFieldWithError = Object.keys(errors).find(
+            (field) => ERROR_STEP_BY_FIELD[ field ] !== undefined
+        );
+
+        if (firstFieldWithError) {
+            state.setCurrentStep(ERROR_STEP_BY_FIELD[ firstFieldWithError ]);
         }
-        return true;
-    });
+    }, [ errors, state.setCurrentStep ]);
 
-    const visibleStepIndex = Math.min(state.currentStep, stepItems.length - 1);
-    const isLastStep = state.currentStep === stepItems.length - 1;
+    const stepItems = getVisibleSteps(group);
+    const { visibleStepIndex, isLastStep, goNext, goBack } = useWizardNavigation({ state, stepItems });
 
-    const computedDiscountType =
-        group === "product"
-            ? state.isPercentage
-                ? "PRODUCT_PERCENTAGE"
-                : "PRODUCT_FIXED"
-            : group === "order"
-                ? state.isPercentage
-                    ? "ORDER_PERCENTAGE"
-                    : "ORDER_FIXED"
-                : groupConfig.discountType;
-
-    const goNext = () => {
-        const next = state.currentStep + 1;
-        if (next < stepItems.length && state.canGoToStep(next)) {
-            state.setCurrentStep(next);
-        }
-    };
-
-    const goBack = () => {
-        state.setCurrentStep(Math.max(0, state.currentStep - 1));
-    };
+    const discountType = computeDiscountType({ group, groupConfig, state, template });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -870,7 +621,7 @@ export default function DiscountEditRoute() {
                         group={group}
                         template={template}
                         discountId={discountId}
-                        discountType={computedDiscountType}
+                        discountType={discountType}
                     />
 
                     <StepProgress
@@ -892,7 +643,6 @@ export default function DiscountEditRoute() {
                         />
                     </div>
 
-                    {/* <StickyActionBar> */}
                     <div className="flex w-full m-3 px-3 justify-between">
                         <button
                             type="button"
@@ -936,7 +686,6 @@ export default function DiscountEditRoute() {
                             </div>
                         )}
                     </div>
-                    {/* </StickyActionBar> */}
                 </Form>
             </div>
         </div>

@@ -16,7 +16,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Percent off order",
         discountType: "ORDER_PERCENTAGE",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             isPercentage: true,
@@ -32,7 +32,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Amount off order",
         discountType: "ORDER_FIXED",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             isPercentage: false,
@@ -48,7 +48,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Percent off products",
         discountType: "PRODUCT_PERCENTAGE",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             isPercentage: true,
@@ -64,7 +64,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Amount off products",
         discountType: "PRODUCT_FIXED",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             isPercentage: false,
@@ -80,7 +80,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Free reward item",
         discountType: "BXGY",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: true,
         defaultConfig: {
             bxgyBuyRequirementType: "QUANTITY",
@@ -99,7 +99,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Amount off reward item",
         discountType: "BXGY",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             bxgyBuyRequirementType: "QUANTITY",
@@ -118,7 +118,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Percentage off reward item",
         discountType: "BXGY",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             bxgyBuyRequirementType: "QUANTITY",
@@ -137,7 +137,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Free shipping",
         discountType: "FREE_SHIPPING",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "BASIC",
         isPopular: false,
         defaultConfig: {
             shippingDestinationMode: "ALL",
@@ -152,7 +152,7 @@ export const DISCOUNT_TEMPLATES = [
         category: "Capped percent off order",
         discountType: "APP_CAPPED",
         method: "AUTOMATIC",
-        requiredPlan: "FREE",
+        requiredPlan: "ADVANCE",
         isPopular: true,
         defaultConfig: {
             isPercentage: true,

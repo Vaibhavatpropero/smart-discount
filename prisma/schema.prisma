@@ -41,7 +41,7 @@ model Session {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ENUMS
+// ENUMS-Shop
 // ─────────────────────────────────────────────────────────────
 
 enum PlanName {
@@ -56,68 +56,6 @@ enum PlanStatus {
   CANCELLED // Merchant cancelled
   EXPIRED // Trial ended, no plan chosen
   PAUSED // Payment failed / grace period
-}
-
-enum DiscountType {
-  // Native API (MVP)
-  ORDER_PERCENTAGE // % off entire order
-  ORDER_FIXED // Fixed $ off entire order
-  PRODUCT_PERCENTAGE // % off specific products/collections
-  PRODUCT_FIXED // Fixed $ off specific products/collections
-  BXGY // Buy X Get Y (BOGO, cross-product, spend-X)
-  FREE_SHIPPING // Remove shipping cost
-
-  // Advanced / Functions (Phase 2 — reserved, not yet built)
-  APP_VOLUME // Volume / tiered pricing (Shopify Function)
-  APP_BUNDLE // Bundle discount (Shopify Function)
-  APP_CAPPED // Capped % discount (Shopify Function)
-}
-
-enum DiscountMethod {
-  CODE // Customer enters a code at checkout
-  AUTOMATIC // Applied automatically, no code needed
-}
-
-enum DiscountStatus {
-  DRAFT // Created in app, not yet pushed to Shopify
-  ACTIVE // Live on Shopify
-  SCHEDULED // Created but startsAt is in the future
-  EXPIRED // Past endsAt
-  DISABLED // Manually deactivated by merchant
-  FAILED // Shopify API push failed — see lastError field
-}
-
-enum MinimumRequirementType {
-  NONE
-  SUBTOTAL // Minimum spend (e.g. order >= $50)
-  QUANTITY // Minimum item count
-}
-
-enum DiscountMatchType {
-  CODE
-  AUTOMATIC
-}
-
-enum BxgyCustomerBuysValueType {
-  QUANTITY // Buy N items
-  AMOUNT // Spend $X
-}
-
-enum BxgyGetsEffect {
-  PERCENTAGE // e.g. 50% off the Y items
-  AMOUNT_OFF_EACH // e.g. $50 off on get item
-  FREE // 100% off — effectively free
-}
-
-enum DiscountEventType {
-  CREATED
-  UPDATED
-  ACTIVATED
-  DEACTIVATED
-  EXPIRED
-  DELETED
-  PUSH_FAILED
-  PLAN_RESTRICTED // Action blocked due to plan limits
 }
 
 enum BillingEventType {
@@ -249,6 +187,71 @@ model BillingEvent {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ENUMS-Discount
+// ─────────────────────────────────────────────────────────────
+enum DiscountType {
+  // Native API (MVP)
+  ORDER_PERCENTAGE // % off entire order
+  ORDER_FIXED // Fixed $ off entire order
+  PRODUCT_PERCENTAGE // % off specific products/collections
+  PRODUCT_FIXED // Fixed $ off specific products/collections
+  BXGY // Buy X Get Y (BOGO, cross-product, spend-X)
+  FREE_SHIPPING // Remove shipping cost
+
+  // Advanced / Functions (Phase 2 — reserved, not yet built)
+  APP_VOLUME // Volume / tiered pricing (Shopify Function)
+  APP_BUNDLE // Bundle discount (Shopify Function)
+  APP_CAPPED // Capped % discount (Shopify Function)
+}
+
+enum DiscountMethod {
+  CODE // Customer enters a code at checkout
+  AUTOMATIC // Applied automatically, no code needed
+}
+
+enum DiscountStatus {
+  DRAFT // Created in app, not yet pushed to Shopify
+  ACTIVE // Live on Shopify
+  SCHEDULED // Created but startsAt is in the future
+  EXPIRED // Past endsAt
+  DISABLED // Manually deactivated by merchant
+  FAILED // Shopify API push failed — see lastError field
+}
+
+enum MinimumRequirementType {
+  NONE
+  SUBTOTAL // Minimum spend (e.g. order >= $50)
+  QUANTITY // Minimum item count
+}
+
+enum DiscountMatchType {
+  CODE
+  AUTOMATIC
+}
+
+enum BxgyCustomerBuysValueType {
+  QUANTITY // Buy N items
+  AMOUNT // Spend $X
+}
+
+enum BxgyGetsEffect {
+  PERCENTAGE // e.g. 50% off the Y items
+  AMOUNT_OFF_EACH // e.g. $50 off on get item
+  FREE // 100% off — effectively free
+}
+
+enum DiscountEventType {
+  CREATED
+  UPDATED
+  ACTIVATED
+  DEACTIVATED
+  EXPIRED
+  DELETED
+  PUSH_FAILED
+  PLAN_RESTRICTED // Action blocked due to plan limits
+}
+
+// ─────────────────────────────────────────────────────────────
 // DISCOUNT
 // Central business table. One row = one discount campaign.
 //
@@ -284,7 +287,6 @@ model Discount {
   matchType        DiscountMatchType?
   matchKey         String?
   isMatchable      Boolean            @default(false)
-  identityVersion  Int                @default(1)
   shopifyDeletedAt DateTime?
   supersededById   String?
 

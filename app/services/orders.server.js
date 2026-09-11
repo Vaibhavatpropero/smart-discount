@@ -15,8 +15,8 @@ export async function handleOrdersCreateWebhook({ shop, payload, webhookId }) {
         logger.warn(SRC, "Shop not found for ORDERS_CREATE", { shop, webhookId });
         return;
     }
-    logger.info(SRC, "recived ordersUpdate payload", { payload })
-    // await upsertUsageFromOrder({ shopId: shopRecord.id, order: payload, webhookId });
+    logger.info(SRC, "recived ordersCreate payload", { payload })
+    await upsertUsageFromOrder({ shopId: shopRecord.id, order: payload, webhookId });
 }
 
 export async function handleOrdersUpdatedWebhook({ shop, payload, webhookId }) {
@@ -24,12 +24,14 @@ export async function handleOrdersUpdatedWebhook({ shop, payload, webhookId }) {
     if (!shopRecord) return;
     // orders/updated fires on many changes (fulfillment, edits) — re-run the same
     // upsert so DiscountUsage totals correct themselves if line items changed.
+    logger.info(SRC, "recived ordersUpdate payload", { payload })
     await upsertUsageFromOrder({ shopId: shopRecord.id, order: payload, webhookId });
 }
 
 export async function handleOrdersCancelledWebhook({ shop, payload, webhookId }) {
     const shopRecord = await prisma.shop.findUnique({ where: { shopDomain: shop } });
     if (!shopRecord) return;
+    logger.info(SRC, "recived ordersCancelled payload", { payload })
     await markUsageCancelledForOrder({
         shopId: shopRecord.id,
         shopifyOrderId: String(payload.admin_graphql_api_id ?? payload.id),
@@ -39,6 +41,8 @@ export async function handleOrdersCancelledWebhook({ shop, payload, webhookId })
 export async function handleRefundsCreateWebhook({ shop, payload, webhookId }) {
     const shopRecord = await prisma.shop.findUnique({ where: { shopDomain: shop } });
     if (!shopRecord) return;
+    logger.info(SRC, "recived refundsCreate payload", { payload })
+
     await markUsageRefunded({
         shopId: shopRecord.id,
         shopifyOrderId: String(payload.order_id),

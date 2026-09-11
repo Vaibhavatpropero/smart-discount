@@ -404,7 +404,7 @@ function TemplateCard({ template, access }) {
 
 function EditCell({ discount }) {
     if (!discount.canEditDraft || !discount.editHref) {
-        return <span className="text-sm text-gray-400">—</span>;
+        return <span className="text-sm text-gray-400" />;
     }
 
     return (
@@ -467,12 +467,12 @@ function ActionCell({ discount }) {
             return <span className="text-sm text-gray-400">Not published</span>;
         }
 
-        return <span className="text-sm text-gray-400">—</span>;
+        return <span className="text-sm text-gray-400" />;
     }
 
     return (
         <div className="flex items-center gap-3">
-            {showToggle ? <DiscountToggle discount={discount} /> : <span className="text-sm text-gray-400">—</span>}
+            {showToggle ? <DiscountToggle discount={discount} /> : <span className="text-sm text-gray-400" />}
             {showDelete ? <DeleteDiscountButton discount={discount} /> : null}
         </div>
     );
@@ -529,7 +529,8 @@ export default function DiscountsPage() {
                             Trial active — you can run up to {access.maxActiveDiscounts} active discounts
                         </p>
                         <p className="mt-1 text-sm text-blue-700">
-                            Advanced targeting, premium templates, and Shopify Functions stay locked until upgrade.
+                            Enjoy full access to advanced targeting, premium templates, and Shopify Functions during your trial.
+                            These require the Advance plan after your trial ends.
                         </p>
                     </div>
                 )}
@@ -565,38 +566,7 @@ export default function DiscountsPage() {
                     </div>
                 </section>
 
-                {/* Templates - Not implemented */}
-                {/* <section className="mt-8">
-                    <div className="mb-4 flex items-end justify-between gap-3">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Start faster with prebuilt campaign templates.
-                            </p>
-                        </div>
-                        {!access.isAdvance && (
-                            <Link
-                                to="/app/billing"
-                                className="text-sm font-medium text-orange-600 hover:text-orange-700"
-                            >
-                                Unlock premium templates
-                            </Link>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                        {templates.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500 lg:col-span-3">
-                                No templates available yet.
-                            </div>
-                        ) : (
-                            templates.map((template) => (
-                                <TemplateCard key={template.id} template={template} access={access} />
-                            ))
-                        )}
-                    </div>
-                </section> */}
-
+                {/* Templates */}
                 <section className="mt-8">
                     <div className="mb-4 flex items-end justify-between gap-3">
                         <div>
@@ -611,13 +581,50 @@ export default function DiscountsPage() {
                                 to="/app/billing"
                                 className="text-sm font-medium text-orange-600 hover:text-orange-700"
                             >
-                                Unlock premium templates
+                                Unlock templates
                             </Link>
                         )}
                     </div>
 
                     <div className="space-y-6">
-                        {templateGroups.every((group) => group.templates.length === 0) ? (
+                        {access.isBasic || access.isAdvance || access.isTrialing ?
+                            templateGroups.map((group) => {
+                                if (group.templates.length === 0) return null;
+
+                                return (
+                                    <div
+                                        key={group.family}
+                                        className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                                    >
+                                        <div className="mb-4">
+                                            <h3 className="text-base font-semibold text-gray-900">
+                                                {group.title}
+                                            </h3>
+                                            <p className="mt-1 text-sm text-gray-500">
+                                                {group.description}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                            {group.templates.map((template) => (
+                                                <TemplateCard
+                                                    key={template.id}
+                                                    template={template}
+                                                    access={access}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            ) :
+                            (
+                                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+                                    No templates available yet.
+                                </div>
+                            )
+                        }
+                        {/* {templateGroups.every((group) => group.templates.length === 0) ? (
                             <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
                                 No templates available yet.
                             </div>
@@ -651,7 +658,7 @@ export default function DiscountsPage() {
                                     </div>
                                 );
                             })
-                        )}
+                        )} */}
                     </div>
                 </section>
 

@@ -1,5 +1,10 @@
 // app/helpers/NativeDiscountsPayloadHelper.js
 
+// import { buildDiscountMatchKey } from "../utils/discount-identity.server";
+import { logger } from "../utils/logger.server";
+
+const SRC = "NativeDiscountsPayloadHelper";
+
 export const GROUP_CONFIG = {
     order: {
         key: "order",
@@ -173,6 +178,18 @@ export function buildBxgyConfigPayload(formData) {
     };
 }
 
+/**
+* Helper function: takes shopId and formData to return a Draft Discount Payload,
+* used by "Create/Edit" routes
+*
+* @param {object} params
+* @param {string} params.shopId    - Used to map the discount to an shop in DB.
+* @param {object} params.formData  - Raw Discount configuration
+* @param {object} params.access    - Required; used to determin if user has access to action
+* @param {object} params.template  - Optional; used by "Create route"
+* @param {object} params.existingDiscount  - Optional; used by "Edit route"
+* @returns {object} Return a draft discount payload
+*/
 export function buildDraftPayload({
     shopId,
     formData,
@@ -187,6 +204,9 @@ export function buildDraftPayload({
     const group = String(formData.get("group") || fallbackGroup).toLowerCase();
     const config = getGroupConfig(group);
 
+    const title = String(formData.get("title") || `${config.title} draft`).trim();
+    const description = String(formData.get("description") || "").trim() || null;
+
     const discountType = String(
         formData.get("discountType") ||
         existingDiscount?.discountType ||
@@ -194,6 +214,13 @@ export function buildDraftPayload({
     );
 
     const method = String(formData.get("method") || config.method);
+    const shopifyDiscountCode = method === "CODE" ? String(formData.get("discountCode") || "").trim() || null : null;
+    const rawStatus = formData.get("status");
+    const status =
+        typeof rawStatus === "string" && rawStatus.trim() !== ""
+            ? rawStatus
+            : "DRAFT";
+
     const isPercentage = String(formData.get("isPercentage") || "true") === "true";
 
     const discountValueRaw = formData.get("discountValue");
@@ -244,13 +271,12 @@ export function buildDraftPayload({
 
     return {
         shopId,
-        title: String(formData.get("title") || `${config.title} draft`).trim(),
-        description: String(formData.get("description") || "").trim() || null,
+        title,
+        description,
         discountType,
         method,
-        shopifyDiscountCode:
-            method === "CODE" ? String(formData.get("discountCode") || "").trim() || null : null,
-        status: "DRAFT",
+        shopifyDiscountCode,
+        status,
         discountValue: isBxgy || isFreeShipping
             ? null
             : Number.isFinite(discountValue)

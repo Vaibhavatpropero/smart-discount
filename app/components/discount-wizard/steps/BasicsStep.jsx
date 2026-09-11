@@ -13,6 +13,16 @@ function Field({ label, children, hint, error }) {
     );
 }
 
+// Format discount code with this rules:
+// 1. All upper case.
+// 2. Only Alphanumeric strings.
+// 3. Trim extra space and space in between words.
+function formatDiscountCode(value = "") {
+    return String(value)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+}
+
 export default function BasicsStep({ state, errors = {}, groupConfig }) {
     const supportedMethods = groupConfig?.supportedMethods || [ "AUTOMATIC" ];
     const methodLocked = supportedMethods.length === 1;
@@ -103,7 +113,7 @@ export default function BasicsStep({ state, errors = {}, groupConfig }) {
                     <input
                         type="text"
                         value={state.discountCode}
-                        onChange={(e) => state.setDiscountCode(e.target.value)}
+                        onChange={(e) => state.setDiscountCode(formatDiscountCode(e.target.value))}
                         className={`w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm uppercase outline-none ${errors?.discountCode
                             ? "border-red-400 focus:border-red-500 focus:ring-red-500"
                             : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"

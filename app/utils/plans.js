@@ -8,7 +8,6 @@ export const PLANS = {
         features: [
             "Up to 3 active discount campaigns",
             "Basic discount types (percentage, fixed)",
-            "Pre-built discount templates",
             "Basic analytics",
             "14-day trial of Advance features",
         ],
@@ -21,7 +20,7 @@ export const PLANS = {
         features: [
             "Up to 20 active discount campaigns",
             "All discount types (BXGY, shipping, volume)",
-            "All pre-built templates",
+            "Pre-built templates",
             "Full analytics dashboard",
             "Code & automatic discounts",
             "Email support",

@@ -1,6 +1,7 @@
 node_modules
 
 # Ignore agentic AI folders
+.claude
 .cursor
 .gemini
 

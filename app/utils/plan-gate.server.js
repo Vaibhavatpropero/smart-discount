@@ -67,6 +67,8 @@ function buildCapabilities({ shop, trialDaysRemaining }) {
     const canOpenCreateDiscount = !isExpired;
     const canCreateDiscount = !isExpired;
 
+    const isTrialOrAdvance = isTrialing || isAdvance;
+
     return {
         planName: shop.planName,
         planStatus: shop.planStatus,
@@ -83,12 +85,12 @@ function buildCapabilities({ shop, trialDaysRemaining }) {
 
         maxActiveDiscounts: isTrialing ? 3 : null,
 
-        canUseAdvancedTargeting: isAdvance,
-        canUseMarketTargeting: isAdvance,
-        canUsePremiumTemplates: isAdvance,
-        canUseAdvancedAnalytics: isAdvance,
-        canUseFunctionsDiscounts: isAdvance,
-        canUseAdvancedCombinability: isAdvance,
+        canUseAdvancedTargeting: isTrialOrAdvance,
+        canUseMarketTargeting: isTrialOrAdvance,
+        canUsePremiumTemplates: isTrialOrAdvance,
+        canUseAdvancedAnalytics: isTrialOrAdvance,
+        canUseFunctionsDiscounts: isTrialOrAdvance,
+        canUseAdvancedCombinability: isTrialOrAdvance,
 
         limitations: buildLimitations({ shop, trialDaysRemaining }),
     };
@@ -98,9 +100,9 @@ export function canUseDiscountType(access, discountType) {
     if (!discountType) return true;
 
     if (access.isExpired) return false;
-    if (access.isAdvance) return true;
+    if (access.isAdvance || access.isTrialing) return true;
 
-    if (access.isTrialing || access.isBasic) {
+    if (access.isBasic) {
         return BASIC_ALLOWED_DISCOUNT_TYPES.has(discountType);
     }
 
@@ -110,6 +112,9 @@ export function canUseDiscountType(access, discountType) {
 export function canUseTemplate(access, template) {
     if (!template) return true;
     if (access.isExpired) return false;
+
+    // Trialing users get access to all templates (BASIC and ADVANCE) during 14-day trial
+    if (access.isTrialing) return true;
 
     const requiredPlan = template.requiredPlan ?? "FREE";
 
@@ -241,8 +246,8 @@ export async function requireCreateDiscountAccess(request) {
     return context;
 }
 
-export function assertAdvancedFeatureAccess(access, { group, formData }) {
-    if (access.isAdvance) return;
+export function assertAdvancedFeatureAccess(access, group, formData) {
+    if (access.isAdvance || access.isTrialing) return;
 
     const violations = [];
 

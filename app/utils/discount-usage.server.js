@@ -1,10 +1,9 @@
 // app/utils/discount-usage.server.js
 import prisma from "../db.server.js";
-import { buildWebhookApplicationIdentity } from "./discount-identity.server.js";
+import { resolveDiscountMatchKey } from "./discount-identity.server.js";
 import { logger } from "./logger.server.js";
 
 const SRC = "discount-usage";
-
 const MAX_TRANSACTION_ATTEMPTS = 3;
 
 function isRetryableUsageWriteError(error) {
@@ -48,7 +47,6 @@ function toOrderGid(value) {
     if (value == null || value === "") return null;
     const s = String(value);
     if (s.startsWith("gid://")) return s;
-    // numeric REST id or plain string id
     if (/^\d+$/.test(s)) return `gid://shopify/Order/${s}`;
     return s;
 }
@@ -87,17 +85,15 @@ function extractOrderTotals(order) {
         orderSubtotal: Number(order.subtotal_price ?? 0),
         orderTotal: Number(order.total_price ?? 0),
         currency: order.currency ?? order.presentment_currency ?? "USD",
-
-        // Important: ORDERS_UPDATED can arrive after ORDERS_CANCELLED.
-        // Never let an update webhook revive a cancelled usage record.
         cancelled: Boolean(order.cancelled_at),
+        orderCreatedAt: order.created_at ?? null,
     };
 }
 
 // Sums per-application discount amounts by matching discount_allocations
 // (on line items / shipping lines) back to discount_application_index.
 function computeApplicationAmounts(order) {
-    const amounts = new Map(); // application_index -> total amount
+    const amounts = new Map();
 
     for (const lineItem of order.line_items ?? []) {
         for (const allocation of lineItem.discount_allocations ?? []) {
@@ -107,7 +103,6 @@ function computeApplicationAmounts(order) {
         }
     }
 
-    // Free shipping discounts allocate against shipping lines, not line_items.
     for (const shippingLine of order.shipping_lines ?? []) {
         for (const allocation of shippingLine.discount_allocations ?? []) {
             const idx = allocation.discount_application_index;
@@ -119,48 +114,149 @@ function computeApplicationAmounts(order) {
     return amounts;
 }
 
-async function matchDiscountForApplication({ shopId, application }) {
-    const identity = buildWebhookApplicationIdentity(application);
+function getApplicationMethod(application) {
+    const type = String(application?.type || "").trim().toLowerCase();
 
-    if (!identity.ok) {
-        if (identity.reason === "UNSUPPORTED_APPLICATION_TYPE") {
-            logger.info(SRC, "Skipping non-app application type", {
-                shopId,
-                type: application?.type ?? null,
-            });
-        } else {
-            logger.warn(SRC, "Could not build application identity", {
-                shopId,
-                reason: identity.reason,
-                type: application?.type ?? null,
-                code: application?.code ?? null,
-                title: application?.title ?? null,
-            });
-        }
-        return null;
-    }
+    if (type === "discount_code") return "CODE";
+    if (type === "automatic") return "AUTOMATIC";
 
-    const match = await prisma.discount.findFirst({
+    return null;
+}
+
+async function findExistingUsageForOrderDiscount({
+    shopId,
+    shopifyOrderId,
+    application,
+}) {
+    const ids = orderIdVariants(shopifyOrderId);
+    if (!ids.length) return null;
+
+    const method = getApplicationMethod(application);
+    if (!method) return null;
+
+    const usages = await prisma.discountUsage.findMany({
         where: {
             shopId,
-            matchType: identity.matchType,
-            matchKey: identity.matchKey,
-            isMatchable: true,
+            shopifyOrderId: { in: ids },
+        },
+        select: {
+            id: true,
+            discountId: true,
+            discount: {
+                select: {
+                    id: true,
+                    title: true,
+                    method: true,
+                    status: true,
+                    matchType: true,
+                    matchKey: true,
+                    isMatchable: true,
+                    shopifyDiscountCode: true,
+                    shopifyDeletedAt: true,
+                },
+            },
         },
     });
 
-    if (!match) {
-        logger.warn(SRC, "No matchable discount", {
+    if (!usages.length) return null;
+
+    if (method === "CODE") {
+        const normalizedCode = String(application?.code || "")
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "");
+
+        return (
+            usages.find(
+                (usage) =>
+                    usage.discount?.method === "CODE" &&
+                    String(usage.discount?.shopifyDiscountCode || "")
+                        .trim()
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, "") === normalizedCode
+            ) || null
+        );
+    }
+
+    const normalizedTitle = String(application?.title || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-");
+
+    return (
+        usages.find(
+            (usage) =>
+                usage.discount?.method === "AUTOMATIC" &&
+                usage.discount?.matchKey === `shopify:auto:${normalizedTitle}`
+        ) || null
+    );
+}
+
+async function matchDiscountForApplication({
+    shopId,
+    shopifyOrderId,
+    orderCreatedAt,
+    application,
+}) {
+    const method = getApplicationMethod(application);
+
+    if (!method) {
+        logger.info(SRC, "Skipping unsupported application type", {
             shopId,
-            matchType: identity.matchType,
-            matchKey: identity.matchKey,
+            type: application?.type ?? null,
+        });
+        return null;
+    }
+
+    const existingUsage = await findExistingUsageForOrderDiscount({
+        shopId,
+        shopifyOrderId,
+        application,
+    });
+
+    if (existingUsage?.discount) {
+        return existingUsage.discount;
+    }
+
+    const match = await resolveDiscountMatchKey({
+        shopId,
+        discountTitle: application?.title ?? null,
+        discountMethod: method,
+        discountCode: application?.code ?? null,
+        orderCreatedAt,
+    });
+
+    if (!match?.matchedDiscount) {
+        logger.warn(SRC, "No discount matched for webhook application", {
+            shopId,
             type: application?.type ?? null,
             code: application?.code ?? null,
             title: application?.title ?? null,
+            matchKey: match?.matchKey ?? null,
         });
+        return null;
     }
 
-    return match;
+    return match.matchedDiscount;
+}
+
+async function recalculateDiscountAggregate(tx, discountId) {
+    const agg = await tx.discountUsage.aggregate({
+        where: {
+            discountId,
+            cancelled: false,
+        },
+        _count: { id: true },
+        _sum: { discountAmount: true },
+    });
+
+    await tx.discount.update({
+        where: { id: discountId },
+        data: {
+            totalUsageCount: agg._count.id,
+            totalSavings: agg._sum.discountAmount ?? 0,
+        },
+    });
 }
 
 /**
@@ -187,7 +283,14 @@ export async function upsertUsageFromOrder({ shopId, order, webhookId }) {
 
     for (let index = 0; index < applications.length; index += 1) {
         const application = applications[ index ];
-        const discount = await matchDiscountForApplication({ shopId, application });
+
+        const discount = await matchDiscountForApplication({
+            shopId,
+            shopifyOrderId: totals.shopifyOrderId,
+            orderCreatedAt: totals.orderCreatedAt,
+            application,
+        });
+
         if (!discount) continue;
 
         const discountAmount = amountsByIndex.get(index) ?? 0;
@@ -225,32 +328,16 @@ export async function upsertUsageFromOrder({ shopId, order, webhookId }) {
                         update: {
                             orderName: totals.orderName,
                             customerId: totals.customerId,
+                            isFirstOrder: totals.isFirstOrder,
                             discountAmount,
                             orderSubtotal: totals.orderSubtotal,
                             orderTotal: totals.orderTotal,
                             currency: totals.currency,
-                            // Never write false here. ORDERS_CANCELLED is authoritative, and a
-                            // delayed ORDERS_UPDATED event must not restore a cancelled usage.
                             ...(totals.cancelled ? { cancelled: true } : {}),
                         },
                     });
 
-                    const agg = await tx.discountUsage.aggregate({
-                        where: {
-                            discountId: discount.id,
-                            cancelled: false,
-                        },
-                        _count: { id: true },
-                        _sum: { discountAmount: true },
-                    });
-
-                    await tx.discount.update({
-                        where: { id: discount.id },
-                        data: {
-                            totalUsageCount: agg._count.id,
-                            totalSavings: agg._sum.discountAmount ?? 0,
-                        },
-                    });
+                    await recalculateDiscountAggregate(tx, discount.id);
 
                     logger.info(SRC, "Usage upserted", {
                         shopId,
@@ -297,9 +384,11 @@ export async function markUsageRefunded({
     const ids = orderIdVariants(shopifyOrderId);
     if (ids.length === 0) return;
 
-    const refundedTotal = (refundPayload?.refund_line_items ?? []).reduce(
-        (sum, item) => sum + Number(item.subtotal ?? 0),
-        0
+    const refundedTotal = Number(
+        refundPayload?.transactions?.reduce(
+            (sum, tx) => sum + Number(tx.amount ?? 0),
+            0
+        ) ?? 0
     );
 
     await prisma.discountUsage.updateMany({
