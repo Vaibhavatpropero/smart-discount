@@ -202,6 +202,7 @@ enum DiscountType {
   APP_VOLUME // Volume / tiered pricing (Shopify Function)
   APP_BUNDLE // Bundle discount (Shopify Function)
   APP_CAPPED // Capped % discount (Shopify Function)
+  APP_FREE_GIFT
 }
 
 enum DiscountMethod {
@@ -298,6 +299,9 @@ model Discount {
   // For APP_CAPPED only
   // discountValue = percentage, cappedAmount = max money off per order
   cappedAmount Decimal? @db.Decimal(10, 2)
+
+  // For free gift config only when discountType = APP_FREE_GIFT
+  freeGiftConfig Json?
 
   // ── Target scope ──────────────────────────────────────────
   // appliesToAll=true → whole order / all products
