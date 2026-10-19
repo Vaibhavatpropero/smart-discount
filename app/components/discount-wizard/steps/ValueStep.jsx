@@ -1,5 +1,6 @@
 // app/components/discount-wizard/steps/ValueStep.jsx
 import { getCurrencySymbol } from "../../../utils/currency.js";
+import { ResourcePicker } from "../../index.js";
 
 function ShippingCountriesInput({ value, onChange, error }) {
     const textValue = Array.isArray(value) ? value.join(", ") : "";
@@ -38,6 +39,7 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
     const isAppCapped = groupConfig.discountType === "APP_CAPPED";
+    const isFreeGift = groupConfig.discountType === "APP_FREE_GIFT";
 
     if (isBxgy) {
         return (
@@ -402,6 +404,171 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                         </span>
                     )}
                 </label>
+            </div>
+        );
+    }
+
+    if (isFreeGift) {
+        return (
+            <div className="space-y-6">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    Configure the free gift product, quantity, and how customers unlock it.
+                </div>
+
+                {/* Gift Product Picker */}
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">Gift product</span>
+                    <ResourcePicker
+                        type="product"
+                        label="Select gift product variant"
+                        selected={state.giftVariantId ? [{ id: state.giftVariantId }] : []}
+                        onChange={(items) => state.setGiftVariantId(items[0]?.id || "")}
+                        hint="Choose the product variant to give as a free gift."
+                        error={errors.giftVariantId}
+                    />
+                </label>
+
+                {/* Gift Quantity */}
+                <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700">Gift quantity</span>
+                    <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={state.giftQuantity}
+                        onChange={(e) => state.setGiftQuantity(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    />
+                    {errors.giftQuantity ? (
+                        <span className="mt-1 block text-xs text-red-600">{errors.giftQuantity}</span>
+                    ) : null}
+                </label>
+
+                {/* Trigger Type Selector */}
+                <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <span className="block text-sm font-medium text-gray-700">How the gift is unlocked</span>
+                    <div className="grid grid-cols-2 gap-3">
+                        {[
+                            { value: "ORDER_THRESHOLD", label: "Order threshold", description: "Spend or quantity minimum" },
+                            { value: "PRODUCT_TRIGGER", label: "Product purchase", description: "Specific product in cart" },
+                        ].map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => state.setTriggerType(opt.value)}
+                                className={`rounded-xl border p-4 text-left transition ${state.triggerType === opt.value
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                    }`}
+                            >
+                                <p className="text-sm font-semibold text-gray-900">{opt.label}</p>
+                                <p className="mt-1 text-xs text-gray-500">{opt.description}</p>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Order Threshold Panel */}
+                {state.triggerType === "ORDER_THRESHOLD" && (
+                    <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <span className="block text-sm font-medium text-gray-700">Order threshold</span>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {[
+                                { value: "SUBTOTAL", label: "Minimum spend", description: "Order subtotal" },
+                                { value: "QUANTITY", label: "Minimum quantity", description: "Total items in cart" },
+                            ].map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => state.setThresholdKind(opt.value)}
+                                    className={`rounded-xl border p-4 text-left transition ${state.thresholdKind === opt.value
+                                        ? "border-blue-500 bg-blue-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                        }`}
+                                >
+                                    <p className="text-sm font-semibold text-gray-900">{opt.label}</p>
+                                    <p className="mt-1 text-xs text-gray-500">{opt.description}</p>
+                                </button>
+                            ))}
+                        </div>
+
+                        {state.thresholdKind === "SUBTOTAL" && (
+                            <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-gray-700">Minimum spend</span>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        value={state.thresholdMinSubtotal}
+                                        onChange={(e) => state.setThresholdMinSubtotal(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 pr-12 text-sm outline-none focus:border-blue-500"
+                                        placeholder="100"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">{symbol}</span>
+                                </div>
+                                {errors.thresholdMinSubtotal ? (
+                                    <span className="mt-1 block text-xs text-red-600">{errors.thresholdMinSubtotal}</span>
+                                ) : null}
+                            </label>
+                        )}
+
+                        {state.thresholdKind === "QUANTITY" && (
+                            <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-gray-700">Minimum quantity</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={state.thresholdMinQuantity}
+                                    onChange={(e) => state.setThresholdMinQuantity(e.target.value)}
+                                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                                    placeholder="5"
+                                />
+                                {errors.thresholdMinQuantity ? (
+                                    <span className="mt-1 block text-xs text-red-600">{errors.thresholdMinQuantity}</span>
+                                ) : null}
+                            </label>
+                        )}
+                    </div>
+                )}
+
+                {/* Product Trigger Panel */}
+                {state.triggerType === "PRODUCT_TRIGGER" && (
+                    <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <span className="block text-sm font-medium text-gray-700">Trigger products</span>
+
+                        <ResourcePicker
+                            type="product"
+                            label="Products that unlock the gift"
+                            selected={state.productTriggerProductIds.map((id) => ({ id }))}
+                            onChange={(items) => state.setProductTriggerProductIds(items.map((item) => item.id))}
+                            hint="Add one or more products. When any of these are in the cart, the gift is unlocked."
+                            error={errors.productTriggerProductIds}
+                        />
+
+                        <label className="block">
+                            <span className="mb-1 block text-sm font-medium text-gray-700">Minimum quantity per product (optional)</span>
+                            <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={state.productTriggerMinQuantity ?? ""}
+                                onChange={(e) => state.setProductTriggerMinQuantity(e.target.value || null)}
+                                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                                placeholder="Optional"
+                            />
+                            {errors.productTriggerMinQuantity ? (
+                                <span className="mt-1 block text-xs text-red-600">{errors.productTriggerMinQuantity}</span>
+                            ) : (
+                                <span className="mt-1 block text-xs text-gray-500">
+                                    Require a minimum quantity of each trigger product to unlock the gift.
+                                </span>
+                            )}
+                        </label>
+                    </div>
+                )}
             </div>
         );
     }
