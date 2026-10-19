@@ -1,17 +1,17 @@
-# Graph Report - sd-dev  (2026-10-19)
+# Graph Report - sd-dev  (2026-10-20)
 
 ## Corpus Check
-- 94 files · ~48,256 words
+- 94 files · ~48,795 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 25 file(s) not represented in the graph (top: (none) 11, .toml 6, .graphql 4)
 
 ## Summary
-- 736 nodes · 1384 edges · 42 communities (29 shown, 13 thin omitted)
+- 736 nodes · 1392 edges · 41 communities (28 shown, 13 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 9 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f5da7098`
+- Built from commit: `ce55a07d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,7 +21,6 @@
 - App Routes & Core Pages
 - Custom Discount Sync Logic
 - GitHub Actions CI/CD Pipeline
-- ReviewStep.jsx
 - Resource Search API
 - Admin Logs Dashboard
 - Package Metadata
@@ -54,8 +53,8 @@
 1. `scripts` - 29 edges
 2. `Shopify App Template React Router` - 21 edges
 3. `react-router` - 19 edges
-4. `compilerOptions` - 18 edges
-5. `logger` - 18 edges
+4. `logger` - 18 edges
+5. `compilerOptions` - 18 edges
 6. `validateDiscountForm()` - 17 edges
 7. `getPlanContext()` - 16 edges
 8. `Deploy to EC2 step` - 16 edges
@@ -65,12 +64,12 @@
 ## Surprising Connections (you probably didn't know these)
 - `cartDeliveryOptionsDiscountsGenerateRun (capped-order-discount)` --semantically_similar_to--> `cartDeliveryOptionsDiscountsGenerateRun (free-gift-discount)`  [INFERRED] [semantically similar]
   extensions/capped-order-discount/src/cart_delivery_options_discounts_generate_run.js.txt → extensions/free-gift-discount/src/cart_delivery_options_discounts_generate_run.js.txt
-- `StepContent()` --calls--> `ConditionsStep()`  [EXTRACTED]
-  app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ConditionsStep.jsx
+- `ConditionsStep()` --calls--> `ResourcePicker()`  [EXTRACTED]
+  app/components/discount-wizard/steps/ConditionsStep.jsx → app/components/ResourcePicker.jsx
+- `Index()` --calls--> `AnalyticsSection()`  [EXTRACTED]
+  app/routes/app._index.jsx → app/components/analytics/AnalyticsSection.jsx
 - `StepContent()` --calls--> `ReviewStep()`  [EXTRACTED]
   app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ReviewStep.jsx
-- `StepContent()` --calls--> `ScheduleStep()`  [EXTRACTED]
-  app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ScheduleStep.jsx
 - `StepContent()` --calls--> `ValueStep()`  [EXTRACTED]
   app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ValueStep.jsx
 
@@ -90,11 +89,11 @@
 - **Shopify App Runtime Configuration** — github_workflows_deploy_secret_shopify_api_key, github_workflows_deploy_secret_shopify_api_secret, github_workflows_deploy_secret_scopes, github_workflows_deploy_secret_shopify_app_url [EXTRACTED 1.00]
 - **Shopify Cart Delivery Options Discount Function Pattern** — extensions_capped_order_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, extensions_free_gift_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, concept_free_delivery_discount_logic [INFERRED 0.95]
 
-## Communities (42 total, 13 thin omitted)
+## Communities (41 total, 13 thin omitted)
 
 ### Community 0 - "Discount Wizard Configuration"
 Cohesion: 0.08
-Nodes (60): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), BasicsStep() (+52 more)
+Nodes (63): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), BasicsStep() (+55 more)
 
 ### Community 1 - "UI Components & Error Handling"
 Cohesion: 0.06
@@ -111,10 +110,6 @@ Nodes (40): buildAppCappedConfiguration(), buildFunctionMetafield(), createAutom
 ### Community 4 - "GitHub Actions CI/CD Pipeline"
 Cohesion: 0.07
 Nodes (41): Deploy SmartDiscount to EC2 Workflow, docker/build-push-action@v7 action, docker/setup-buildx-action@v4 action, actions/checkout@v6 action, aws-actions/configure-aws-credentials@v6 action, aws-actions/amazon-ecr-login@v2 action, appleboy/ssh-action@v1.2.2 action, smartdiscount-production concurrency group (+33 more)
-
-### Community 5 - "ReviewStep.jsx"
-Cohesion: 0.30
-Nodes (9): formatAppCappedSummary(), formatBxgySummary(), formatShippingSummary(), ReviewStep(), ShippingCountriesInput(), ValueStep(), CURRENCY_SYMBOLS, formatCurrencyHint() (+1 more)
 
 ### Community 6 - "Resource Search API"
 Cohesion: 0.11
@@ -165,8 +160,8 @@ Cohesion: 0.11
 Nodes (19): devDependencies, eslint, eslint-import-resolver-typescript, eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react, eslint-plugin-react-hooks, graphql-config (+11 more)
 
 ### Community 18 - "Resource Picker Component"
-Cohesion: 0.17
-Nodes (13): ConditionsStep(), getItemDescription(), getItemMeta(), getItemStatus(), ResourcePicker(), ResultRow(), SearchModal(), SelectedTargetGrid() (+5 more)
+Cohesion: 0.12
+Nodes (21): formatAppCappedSummary(), formatBxgySummary(), formatShippingSummary(), ReviewStep(), ShippingCountriesInput(), ValueStep(), getItemDescription(), getItemMeta() (+13 more)
 
 ### Community 19 - "Changelog: Template Evolution"
 Cohesion: 0.14
@@ -205,11 +200,11 @@ Cohesion: 0.67
 Nodes (3): Database Configuration, DATABASE_URL, LOCAL_DATABASE_URL
 
 ### Community 40 - "discount-identity.server.js"
-Cohesion: 0.23
-Nodes (19): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), buildDiscountMatchKey(), buildDiscountSelect(), buildExcludeWhere(), COLLISION_MATCH_TYPE, DISCOUNT_METHOD, DISCOUNT_STATUS (+11 more)
+Cohesion: 0.21
+Nodes (17): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), buildDiscountSelect(), buildExcludeWhere(), COLLISION_MATCH_TYPE, DISCOUNT_METHOD, DISCOUNT_STATUS, findLiveCodeCollision() (+9 more)
 
 ## Knowledge Gaps
-- **107 isolated node(s):** `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers`, `vitest`, `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers` (+102 more)
+- **107 isolated node(s):** `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers`, `vitest` (+102 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 310 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -218,10 +213,10 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `react-router` connect `UI Components & Error Handling` to `Discount Wizard Configuration`, `App Routes & Core Pages`, `Resource Search API`, `Admin Logs Dashboard`, `Package Metadata`, `Analytics UI Components`, `Server Entry & Shopify Auth`?**
   _High betweenness centrality (0.107) - this node is a cross-community bridge._
-- **What connects `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers`, `vitest` to the rest of the system?**
+- **What connects `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function` to the rest of the system?**
   _107 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Discount Wizard Configuration` be split into smaller, more focused modules?**
-  _Cohesion score 0.07724505327245053 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07518796992481203 - nodes in this community are weakly interconnected._
 - **Why does `react` connect `Discount Wizard Configuration` to `UI Components & Error Handling`, `App Routes & Core Pages`, `Resource Search API`, `Package Metadata`, `Analytics UI Components`, `Resource Picker Component`?**
   _High betweenness centrality (0.054) - this node is a cross-community bridge._
 - **Should `UI Components & Error Handling` be split into smaller, more focused modules?**
