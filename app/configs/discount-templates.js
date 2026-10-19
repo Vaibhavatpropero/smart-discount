@@ -5,6 +5,7 @@ export const DISCOUNT_TEMPLATE_FAMILIES = {
     PRODUCT: "product",
     BXGY: "bxgy",
     SHIPPING: "shipping",
+    FREE_GIFT: "free_gift",
 };
 
 export const DISCOUNT_TEMPLATES = [
@@ -160,6 +161,54 @@ export const DISCOUNT_TEMPLATES = [
             cappedAmount: "",
         },
     },
+    {
+        slug: "free-gift-threshold",
+        name: "Free gift on order threshold",
+        description: "Automatically add a free gift when the order meets a spend or quantity threshold.",
+        family: DISCOUNT_TEMPLATE_FAMILIES.FREE_GIFT,
+        category: "Free gift with threshold",
+        discountType: "APP_FREE_GIFT",
+        method: "AUTOMATIC",
+        requiredPlan: "ADVANCE",
+        isPopular: true,
+        defaultConfig: {
+            freeGiftConfig: {
+                giftVariantId: "",
+                giftQuantity: 1,
+                triggerType: "ORDER_THRESHOLD",
+                threshold: {
+                    kind: "SUBTOTAL",
+                    minSubtotal: "",
+                },
+                productTrigger: null,
+            },
+            minimumType: "NONE",
+        },
+    },
+    {
+        slug: "free-gift-product",
+        name: "Free gift with product purchase",
+        description: "Automatically add a free gift when a specific product is added to the cart.",
+        family: DISCOUNT_TEMPLATE_FAMILIES.FREE_GIFT,
+        category: "Free gift with product",
+        discountType: "APP_FREE_GIFT",
+        method: "AUTOMATIC",
+        requiredPlan: "ADVANCE",
+        isPopular: false,
+        defaultConfig: {
+            freeGiftConfig: {
+                giftVariantId: "",
+                giftQuantity: 1,
+                triggerType: "PRODUCT_TRIGGER",
+                threshold: null,
+                productTrigger: {
+                    productIds: [],
+                    minQuantityPerProduct: null,
+                },
+            },
+            minimumType: "NONE",
+        },
+    },
 ];
 
 export function getDiscountTemplateByDiscount(discount) {
@@ -206,6 +255,11 @@ export function getDiscountTemplateByDiscount(discount) {
 
         case "APP_CAPPED":
             return getDiscountTemplateBySlug("app-capped-order");
+
+        case "APP_FREE_GIFT": {
+            // Default to threshold template; edit route will match by templateSlug if set
+            return getDiscountTemplateBySlug("free-gift-threshold");
+        }
 
         default:
             return null;

@@ -13,6 +13,7 @@ node_modules
 /app/build
 /public/build/
 /public/_dev
+/docs
 /app/public/build
 /prisma/dev.sqlite
 /prisma/dev.sqlite-journal
