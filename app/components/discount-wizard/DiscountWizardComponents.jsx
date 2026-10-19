@@ -23,6 +23,15 @@ export const ERROR_STEP_BY_FIELD = {
     // Step 1: Value
     discountValue: 1,
     cappedAmount: 1,
+    // Free Gift fields (all map to Value step)
+    giftVariantId: 1,
+    giftQuantity: 1,
+    triggerType: 1,
+    thresholdKind: 1,
+    thresholdMinSubtotal: 1,
+    thresholdMinQuantity: 1,
+    productTriggerProductIds: 1,
+    productTriggerMinQuantity: 1,
 
     // Step 2: Conditions
     targetProducts: 2,
@@ -227,6 +236,16 @@ function getGroupSpecificFields({ state, group }) {
                 />
                 <input type="hidden" name="bxgyUsesPerOrderLimit" value={state.bxgyUsesPerOrderLimit} />
             </>
+        );
+    }
+
+    if (group === "free_gift") {
+        return (
+            <input
+                type="hidden"
+                name="freeGiftConfig"
+                value={JSON.stringify(state.freeGiftConfig)}
+            />
         );
     }
 

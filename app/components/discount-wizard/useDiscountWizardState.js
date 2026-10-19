@@ -87,6 +87,25 @@ export function useDiscountWizardState({
     const getInitialEndsAt = () => initialState?.endsAt ?? "";
     const getInitialCurrentStep = () => initialState?.currentStep ?? 0;
 
+    // Free Gift Config initializers
+    const getInitialFreeGiftConfig = () =>
+        initialState?.freeGiftConfig ?? {
+            giftVariantId: "",
+            giftQuantity: 1,
+            triggerType: "ORDER_THRESHOLD",
+            threshold: { kind: "SUBTOTAL", minSubtotal: "" },
+            productTrigger: { productIds: [], minQuantityPerProduct: null },
+        };
+
+    const getInitialGiftVariantId = () => getInitialFreeGiftConfig().giftVariantId;
+    const getInitialGiftQuantity = () => getInitialFreeGiftConfig().giftQuantity;
+    const getInitialTriggerType = () => getInitialFreeGiftConfig().triggerType;
+    const getInitialThresholdKind = () => getInitialFreeGiftConfig().threshold?.kind ?? "SUBTOTAL";
+    const getInitialThresholdMinSubtotal = () => getInitialFreeGiftConfig().threshold?.minSubtotal ?? "";
+    const getInitialThresholdMinQuantity = () => getInitialFreeGiftConfig().threshold?.minQuantity ?? "";
+    const getInitialProductTriggerProductIds = () => getInitialFreeGiftConfig().productTrigger?.productIds ?? [];
+    const getInitialProductTriggerMinQuantity = () => getInitialFreeGiftConfig().productTrigger?.minQuantityPerProduct ?? null;
+
     const [ title, setTitle ] = useState(getInitialTitle);
     const [ description, setDescription ] = useState(getInitialDescription);
     const [ method, setMethod ] = useState(getInitialMethod);
@@ -178,6 +197,17 @@ export function useDiscountWizardState({
     const [ startsAt, setStartsAt ] = useState(getInitialStartsAt);
     const [ endsAt, setEndsAt ] = useState(getInitialEndsAt);
 
+    // Free Gift Config state
+    const [ freeGiftConfig, setFreeGiftConfig ] = useState(getInitialFreeGiftConfig);
+    const [ giftVariantId, setGiftVariantId ] = useState(getInitialGiftVariantId);
+    const [ giftQuantity, setGiftQuantity ] = useState(getInitialGiftQuantity);
+    const [ triggerType, setTriggerType ] = useState(getInitialTriggerType);
+    const [ thresholdKind, setThresholdKind ] = useState(getInitialThresholdKind);
+    const [ thresholdMinSubtotal, setThresholdMinSubtotal ] = useState(getInitialThresholdMinSubtotal);
+    const [ thresholdMinQuantity, setThresholdMinQuantity ] = useState(getInitialThresholdMinQuantity);
+    const [ productTriggerProductIds, setProductTriggerProductIds ] = useState(getInitialProductTriggerProductIds);
+    const [ productTriggerMinQuantity, setProductTriggerMinQuantity ] = useState(getInitialProductTriggerMinQuantity);
+
     const [ currentStep, setCurrentStep ] = useState(getInitialCurrentStep);
 
     const validation = useMemo(() => {
@@ -232,6 +262,23 @@ export function useDiscountWizardState({
             Number.isFinite(Number(cappedAmount)) &&
             Number(cappedAmount) > 0;
 
+        const freeGiftConfigValid =
+            groupValue === "free_gift"
+                ? giftVariantId !== "" &&
+                  Number.isInteger(Number(giftQuantity)) &&
+                  Number(giftQuantity) > 0 &&
+                  triggerType &&
+                  (triggerType === "ORDER_THRESHOLD"
+                      ? thresholdKind &&
+                        (thresholdKind === "SUBTOTAL"
+                            ? Number.isFinite(Number(thresholdMinSubtotal)) && Number(thresholdMinSubtotal) > 0
+                            : Number.isInteger(Number(thresholdMinQuantity)) && Number(thresholdMinQuantity) > 0)
+                      : productTriggerProductIds.length > 0 &&
+                        (productTriggerMinQuantity === null ||
+                          productTriggerMinQuantity === "" ||
+                          (Number.isInteger(Number(productTriggerMinQuantity)) && Number(productTriggerMinQuantity) > 0)))
+                : true;
+
         const valueValid =
             groupValue === "bxgy"
                 ? bxgyBuyRequirementValid && bxgyGetQuantityValid && bxgyGetEffectValid
@@ -239,7 +286,9 @@ export function useDiscountWizardState({
                     ? shippingCountriesValid && maximumShippingPriceValid
                     : isAppCappedTemplate
                         ? appCappedValueValid
-                        : defaultValueValid;
+                        : groupValue === "free_gift"
+                            ? freeGiftConfigValid
+                            : defaultValueValid;
 
         const defaultConditionsValid =
             minimumType === "NONE" ||
@@ -273,6 +322,7 @@ export function useDiscountWizardState({
         return {
             basicsValid,
             appCappedValueValid,
+            freeGiftConfigValid,
             valueValid,
             conditionsValid,
             scheduleValid,
@@ -316,6 +366,14 @@ export function useDiscountWizardState({
         endsAt,
         groupValue,
         isAppCappedTemplate,
+        giftVariantId,
+        giftQuantity,
+        triggerType,
+        thresholdKind,
+        thresholdMinSubtotal,
+        thresholdMinQuantity,
+        productTriggerProductIds,
+        productTriggerMinQuantity,
     ]);
 
     const canGoToStep = (stepIndex) => {
@@ -323,7 +381,7 @@ export function useDiscountWizardState({
         if (stepIndex === 1) return validation.basicsValid;
 
         if (stepIndex === 2) {
-            if (groupValue === "bxgy" || groupValue === "shipping") {
+            if (groupValue === "bxgy" || groupValue === "shipping" || groupValue === "free_gift") {
                 return validation.basicsValid && validation.valueValid;
             }
 
@@ -403,6 +461,17 @@ export function useDiscountWizardState({
         shippingDestinationMode, setShippingDestinationMode,
         shippingDestinationCountries, setShippingDestinationCountries,
         maximumShippingPrice, setMaximumShippingPrice,
+
+        // Free Gift Config
+        freeGiftConfig, setFreeGiftConfig,
+        giftVariantId, setGiftVariantId,
+        giftQuantity, setGiftQuantity,
+        triggerType, setTriggerType,
+        thresholdKind, setThresholdKind,
+        thresholdMinSubtotal, setThresholdMinSubtotal,
+        thresholdMinQuantity, setThresholdMinQuantity,
+        productTriggerProductIds, setProductTriggerProductIds,
+        productTriggerMinQuantity, setProductTriggerMinQuantity,
 
         startsAt, setStartsAt,
         endsAt, setEndsAt,
