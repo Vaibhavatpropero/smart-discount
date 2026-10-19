@@ -61,6 +61,7 @@ export async function publishDiscountToShopify({
     const matchType = discount.method === "CODE" ? "CODE" : "AUTOMATIC";
 
     let shopifyDiscountId;
+    let shopifyDiscountCode;
 
     if (syncDiscount.discountType === "APP_CAPPED") {
         const {
@@ -77,7 +78,24 @@ export async function publishDiscountToShopify({
         });
 
         shopifyDiscountId = result.shopifyDiscountId;
-    } else {
+    } else if (syncDiscount.discountType === "APP_FREE_GIFT") {
+        const {
+            resolveFreeGiftFunctionId,
+            pushFreeGiftDiscountToShopify,
+        } = await import("./discount-free-gift-sync.server.js");
+
+        const functionId = await resolveFreeGiftFunctionId(admin);
+
+        const result = await pushFreeGiftDiscountToShopify({
+            admin,
+            discount: syncDiscount,
+            functionId
+        });
+
+        shopifyDiscountId = result.shopifyDiscountId;
+        shopifyDiscountCode = result.shopifyDiscountCode;
+    }
+    else {
         const { pushDiscountToShopify } = await import("./discount-sync.server.js");
 
         const result = await pushDiscountToShopify({
@@ -93,6 +111,7 @@ export async function publishDiscountToShopify({
         data: {
             status: nextStatus,
             shopifyDiscountId,
+            ...(shopifyDiscountCode ? { shopifyDiscountCode } : {}),
             lastSyncedAt: new Date(),
             lastError: null,
             matchType,

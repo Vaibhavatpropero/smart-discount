@@ -4,7 +4,7 @@
  * Centralizes all form validation logic to avoid duplication and ensure consistency.
  */
 
-import { parseJsonArray } from "../helpers/NativeDiscountsPayloadHelper.js";
+import { parseJsonArray, normalizeJson } from "../helpers/NativeDiscountsPayloadHelper.js";
 import { assertAdvancedFeatureAccess } from "./plan-gate.server.js";
 
 /**
@@ -91,6 +91,62 @@ export function validateAppCapped({ discountValue, cappedAmount }) {
         cappedAmount <= 0
     ) {
         errors.cappedAmount = "Enter a valid capped amount.";
+    }
+
+    return errors;
+}
+
+/**
+ * Validates APP_FREE_GIFT specific fields (reads the freeGiftConfig JSON)
+ * @param {object} params
+ * @param {FormData} params.formData - Raw form data
+ * @returns {object} errors object (empty if valid)
+ */
+export function validateFreeGift({ formData }) {
+    const errors = {};
+    const raw = normalizeJson(formData.get("freeGiftConfig"));
+
+    if (!raw) {
+        errors.freeGiftConfig = "Configure the free gift.";
+        return errors;
+    }
+
+    if (!(raw.giftVariantId ?? raw.giftVariant)) {
+        errors.giftVariantId = "Select the gift product variant.";
+    }
+
+    if (
+        raw.giftQuantity != null &&
+        raw.giftQuantity !== "" &&
+        (!Number.isInteger(Number(raw.giftQuantity)) || Number(raw.giftQuantity) <= 0)
+    ) {
+        errors.giftQuantity = "Gift quantity must be a positive whole number.";
+    }
+
+    if (raw.triggerType === "ORDER_THRESHOLD") {
+        const t = raw.threshold;
+        if (t?.kind === "SUBTOTAL") {
+            if (!(Number(t.minSubtotal) > 0)) {
+                errors.minSubtotal = "Enter a minimum spend greater than 0.";
+            }
+        } else if (t?.kind === "QUANTITY") {
+            if (!Number.isInteger(Number(t.minQuantity)) || Number(t.minQuantity) <= 0) {
+                errors.minQuantity = "Enter a valid minimum quantity.";
+            }
+        } else {
+            errors.threshold = "Choose a spend or quantity threshold.";
+        }
+    } else if (raw.triggerType === "PRODUCT_TRIGGER") {
+        const ids = (raw.productTrigger?.productIds || []).filter(Boolean);
+        if (ids.length === 0) {
+            errors.productIds = "Add at least one trigger variant.";
+        }
+        const m = raw.productTrigger?.minQuantityPerProduct;
+        if (m !== "" && m != null && (!Number.isInteger(Number(m)) || Number(m) <= 0)) {
+            errors.minQuantityPerProduct = "Minimum quantity must be a positive whole number.";
+        }
+    } else {
+        errors.triggerType = "Choose how the gift is unlocked.";
     }
 
     return errors;
@@ -335,15 +391,19 @@ export function validateDiscountForm({
     const maximumShippingPrice = maximumShippingPriceRaw === "" || maximumShippingPriceRaw == null ? null : Number(maximumShippingPriceRaw);
 
     // Determine discount type
-    const postedDiscountType = String(
-        formData.get("discountType") ||
-        existingDiscount?.discountType ||
-        groupConfig.discountType
-    );
+    const postedDiscountType =
+        groupConfig.key === "free_gift"
+            ? groupConfig.discountType
+            : String(
+                formData.get("discountType") ||
+                existingDiscount?.discountType ||
+                groupConfig.discountType
+            );
 
     const isBxgy = postedDiscountType === "BXGY";
     const isFreeShipping = postedDiscountType === "FREE_SHIPPING";
     const isAppCapped = postedDiscountType === "APP_CAPPED";
+    const isFreeGift = postedDiscountType === "APP_FREE_GIFT";
     const isPercentage = String(formData.get("isPercentage") || "true") === "true";
 
     // Run all validations
@@ -353,11 +413,16 @@ export function validateDiscountForm({
     errors = { ...errors, ...validateBasicFields({ title, discountCode, method, groupConfig }) };
 
     // 2. Discount value (for non-BXGY, non-free-shipping, non-app-capped)
-    errors = { ...errors, ...validateDiscountValue({ discountValue, isPercentage, isBxgy, isFreeShipping, isAppCapped }) };
+    errors = { ...errors, ...validateDiscountValue({ discountValue, isPercentage, isBxgy, isFreeShipping, isAppCapped: isAppCapped || isFreeGift }) };
 
     // 3. APP_CAPPED specific
     if (isAppCapped) {
         errors = { ...errors, ...validateAppCapped({ discountValue, cappedAmount }) };
+    }
+
+    // 3b. APP_FREE_GIFT specific
+    if (isFreeGift) {
+        errors = { ...errors, ...validateFreeGift({ formData }) };
     }
 
     // 4. Free shipping specific
@@ -374,7 +439,7 @@ export function validateDiscountForm({
     errors = { ...errors, ...validateProductTargeting({ group: groupConfig.key, scopeMode, targetProducts, targetCollections }) };
 
     // 7. Minimum requirements
-    errors = { ...errors, ...validateMinimumRequirements({ minimumType, minimumSubtotal, minimumQuantity, isAppCapped }) };
+    errors = { ...errors, ...validateMinimumRequirements({ minimumType, minimumSubtotal, minimumQuantity, isAppCapped: isAppCapped || isFreeGift }) };
 
     // 8. Usage limit
     errors = { ...errors, ...validateUsageLimit(usageLimit) };
@@ -416,6 +481,7 @@ export function validateDiscountForm({
         isBxgy,
         isFreeShipping,
         isAppCapped,
+        isFreeGift,
         isPercentage,
     };
 

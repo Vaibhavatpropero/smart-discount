@@ -71,6 +71,19 @@ export const GROUP_CONFIG = {
         supportsTargets: false,
         supportsValueTypeToggle: false,
     },
+    free_gift: {
+        key: "free_gift",
+        family: "APP_FUNCTION",
+        discountType: "APP_FREE_GIFT",
+        method: "AUTOMATIC",
+        supportedMethods: [ "AUTOMATIC", "CODE" ],
+        title: "Free gift",
+        shortTitle: "Free gift",
+        description: "Automatically discount a gift item when the cart qualifies.",
+        helper: "Reward customers with a free product when they hit a threshold or buy a trigger product.",
+        supportsTargets: false,
+        supportsValueTypeToggle: false,
+    },
 };
 
 export function getGroupConfig(group) {
@@ -90,6 +103,8 @@ export function getGroupKeyFromDiscountType(discountType) {
         case "APP_BUNDLE":
         case "APP_CAPPED":
             return "app";
+        case "APP_FREE_GIFT":
+            return "free_gift";
         case "ORDER_FIXED":
         case "ORDER_PERCENTAGE":
         default:
@@ -178,6 +193,39 @@ export function buildBxgyConfigPayload(formData) {
     };
 }
 
+const idOf = (v) => (typeof v === "string" ? v : v?.id) || null;
+
+export function buildFreeGiftConfigPayload(formData) {
+    const raw = normalizeJson(formData.get("freeGiftConfig"));
+    if (!raw) return null;
+
+    const qty = Math.trunc(Number(raw.giftQuantity));
+    const cfg = {
+        giftVariantId: idOf(raw.giftVariantId ?? raw.giftVariant),
+        giftQuantity: qty > 0 ? qty : 1,
+        triggerType: raw.triggerType,
+        threshold: null,
+        productTrigger: null,
+    };
+
+    if (raw.triggerType === "ORDER_THRESHOLD" && raw.threshold) {
+        cfg.threshold =
+            raw.threshold.kind === "QUANTITY"
+                ? { kind: "QUANTITY", minQuantity: Number(raw.threshold.minQuantity) }
+                : { kind: "SUBTOTAL", minSubtotal: Number(raw.threshold.minSubtotal) };
+    }
+
+    if (raw.triggerType === "PRODUCT_TRIGGER" && raw.productTrigger) {
+        const ids = (raw.productTrigger.productIds || []).map(idOf).filter(Boolean);
+        const minQ = raw.productTrigger.minQuantityPerProduct;
+        cfg.productTrigger = {
+            productIds: ids, // variant GIDs
+            minQuantityPerProduct: minQ === "" || minQ == null ? null : Number(minQ),
+        };
+    }
+    return cfg;
+}
+
 /**
 * Helper function: takes shopId and formData to return a Draft Discount Payload,
 * used by "Create/Edit" routes
@@ -207,11 +255,14 @@ export function buildDraftPayload({
     const title = String(formData.get("title") || `${config.title} draft`).trim();
     const description = String(formData.get("description") || "").trim() || null;
 
-    const discountType = String(
-        formData.get("discountType") ||
-        existingDiscount?.discountType ||
-        config.discountType
-    );
+    const discountType =
+        group === "free_gift"
+            ? config.discountType
+            : String(
+                formData.get("discountType") ||
+                existingDiscount?.discountType ||
+                config.discountType
+            );
 
     const method = String(formData.get("method") || config.method);
     const shopifyDiscountCode = method === "CODE" ? String(formData.get("discountCode") || "").trim() || null : null;
@@ -251,6 +302,9 @@ export function buildDraftPayload({
     const isBxgy = discountType === "BXGY";
     const isFreeShipping = discountType === "FREE_SHIPPING";
 
+    const isFreeGift = discountType === "APP_FREE_GIFT";
+    const isAppFn = discountType === "APP_CAPPED" || isFreeGift;
+
     let appliesToAll = true;
     let targetProducts = null;
     let targetCollections = null;
@@ -277,7 +331,7 @@ export function buildDraftPayload({
         method,
         shopifyDiscountCode,
         status,
-        discountValue: isBxgy || isFreeShipping
+        discountValue: isBxgy || isFreeShipping || isFreeGift
             ? null
             : Number.isFinite(discountValue)
                 ? discountValue
@@ -286,19 +340,19 @@ export function buildDraftPayload({
             discountType === "APP_CAPPED" && Number.isFinite(cappedAmount)
                 ? cappedAmount
                 : null,
-        isPercentage: isBxgy || isFreeShipping ? false : isPercentage,
+        isPercentage: isBxgy || isFreeShipping || isFreeGift ? false : isPercentage,
         appliesToAll,
         targetProducts,
         targetCollections,
-        minimumType: discountType === "APP_CAPPED" ? "NONE" : minimumType,
+        minimumType: isAppFn ? "NONE" : minimumType,
         minimumSubtotal:
-            discountType === "APP_CAPPED"
+            isAppFn
                 ? null
                 : minimumType === "SUBTOTAL" && minimumSubtotalRaw !== "" && minimumSubtotalRaw != null
                     ? Number(minimumSubtotalRaw)
                     : null,
         minimumQuantity:
-            discountType === "APP_CAPPED"
+            isAppFn
                 ? null
                 : minimumType === "QUANTITY" && minimumQuantityRaw !== "" && minimumQuantityRaw != null
                     ? Number(minimumQuantityRaw)
@@ -330,6 +384,7 @@ export function buildDraftPayload({
         templateSlug: template?.slug || String(formData.get("templateSlug") || "").trim() || null,
         createdOnPlan: access?.planName || existingDiscount?.createdOnPlan || null,
         lastError: null,
+        freeGiftConfig: isFreeGift ? buildFreeGiftConfigPayload(formData) : undefined,
     };
 }
 
@@ -360,6 +415,7 @@ export function buildInitialState(discount, group) {
         isPercentage: Boolean(discount.isPercentage),
         discountValue: discount.discountValue == null ? "" : String(discount.discountValue),
         cappedAmount: discount.cappedAmount == null ? "" : String(discount.cappedAmount),
+        freeGiftConfig: discount.freeGiftConfig ?? null,
 
         minimumType: discount.minimumType || "NONE",
         minimumSubtotal: discount.minimumSubtotal == null ? "" : String(discount.minimumSubtotal),

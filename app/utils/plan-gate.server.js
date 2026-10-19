@@ -25,6 +25,7 @@ const ADVANCE_ONLY_DISCOUNT_TYPES = new Set([
     "APP_VOLUME",
     "APP_BUNDLE",
     "APP_CAPPED",
+    "APP_FREE_GIFT",
 ]);
 
 function hasPlanAtLeast(currentPlanName, requiredPlanName) {
@@ -251,7 +252,7 @@ export function assertAdvancedFeatureAccess(access, group, formData) {
 
     const violations = [];
 
-    if (group === "app") {
+    if (group === "app" || group === "free_gift") {
         violations.push("App-powered custom discounts require the Advance plan.");
     }
 

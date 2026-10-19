@@ -1,7 +1,22 @@
+# extensions/free-gift-discount/src/cart_lines_discounts_generate_run.graphql
+
 query CartInput {
   cart {
+    cost {
+      subtotalAmount {
+        amount
+        currencyCode
+      }
+    }
     lines {
       id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+        }
+      }
       cost {
         subtotalAmount {
           amount
@@ -11,5 +26,8 @@ query CartInput {
   }
   discount {
     discountClasses
+    metafield(namespace: "$app", key: "function-configuration") {
+      jsonValue
+    }
   }
 }

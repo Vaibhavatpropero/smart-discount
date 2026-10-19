@@ -20,8 +20,22 @@ database.sqlite
 
 .env
 .env.*
+*.pem
+*.key
+*.sqlite
+*.db
+prisma/*.db
 
+# Generated / noise
+package-lock.json
+extensions/*/generated/
+extensions/*/tests/fixtures/
 /extensions/*/dist
+*.graphql.txt
+public/
+
+# Ignore graphify optinal files
+graphify-out/cache/
 
 # Ignore shopify files created during app dev
 .shopify/*
