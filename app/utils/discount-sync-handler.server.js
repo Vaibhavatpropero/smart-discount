@@ -78,6 +78,7 @@ export async function publishDiscountToShopify({
         });
 
         shopifyDiscountId = result.shopifyDiscountId;
+        shopifyDiscountCode = result.shopifyDiscountCode;
     } else if (syncDiscount.discountType === "APP_FREE_GIFT") {
         const {
             resolveFreeGiftFunctionId,

@@ -421,10 +421,18 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                     <ResourcePicker
                         type="product"
                         label="Select gift product variant"
-                        selected={state.giftVariantId ? [{ id: state.giftVariantId }] : []}
-                        onChange={(items) => state.setGiftVariantId(items[0]?.id || "")}
+                        selected={state.giftProduct
+                            ? [state.giftProduct]
+                            : state.giftVariantId
+                                ? [{ id: state.giftVariantId, title: state.giftVariantId }]
+                                : []}
+                        onChange={(items) => {
+                            state.setGiftVariantId(items[0]?.id || "");
+                            state.setGiftProduct(items[0] || null);
+                        }}
                         hint="Choose the product variant to give as a free gift."
                         error={errors.giftVariantId}
+                        mode="single"
                     />
                 </label>
 
@@ -542,8 +550,15 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                         <ResourcePicker
                             type="product"
                             label="Products that unlock the gift"
-                            selected={state.productTriggerProductIds.map((id) => ({ id }))}
-                            onChange={(items) => state.setProductTriggerProductIds(items.map((item) => item.id))}
+                            selected={
+                                state.productTriggerProducts.length > 0
+                                    ? state.productTriggerProducts
+                                    : state.productTriggerProductIds.map((id) => ({ id, title: id }))
+                            }
+                            onChange={(items) => {
+                                state.setProductTriggerProductIds(items.map((item) => item.id));
+                                state.setProductTriggerProducts(items);
+                            }}
                             hint="Add one or more products. When any of these are in the cart, the gift is unlocked."
                             error={errors.productTriggerProductIds}
                         />

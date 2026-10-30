@@ -304,6 +304,7 @@ export function buildDraftPayload({
 
     const isFreeGift = discountType === "APP_FREE_GIFT";
     const isAppFn = discountType === "APP_CAPPED" || isFreeGift;
+    const isAutomaticAppFn = isAppFn && method === "AUTOMATIC";
 
     let appliesToAll = true;
     let targetProducts = null;
@@ -358,10 +359,12 @@ export function buildDraftPayload({
                     ? Number(minimumQuantityRaw)
                     : null,
         usageLimit:
+            isAutomaticAppFn ||
             usageLimitRaw === "" || usageLimitRaw == null
                 ? null
                 : Number(usageLimitRaw),
         appliesOncePerCustomer:
+            !isAutomaticAppFn &&
             String(formData.get("appliesOncePerCustomer")) === "true",
         combineWithOrderDiscounts:
             String(formData.get("combineWithOrderDiscounts")) === "true",
@@ -416,6 +419,8 @@ export function buildInitialState(discount, group) {
         discountValue: discount.discountValue == null ? "" : String(discount.discountValue),
         cappedAmount: discount.cappedAmount == null ? "" : String(discount.cappedAmount),
         freeGiftConfig: discount.freeGiftConfig ?? null,
+        giftProduct: discount.giftProduct ?? null,
+        productTriggerProducts: asResourceArray(discount.productTriggerProducts),
 
         minimumType: discount.minimumType || "NONE",
         minimumSubtotal: discount.minimumSubtotal == null ? "" : String(discount.minimumSubtotal),

@@ -432,8 +432,12 @@ export function ResourcePicker({
     onChange,
     hint,
     error,
+    mode = "multi", // "single" | "multi"
 }) {
     const [ modalOpen, setModalOpen ] = useState(false);
+
+    const isSingle = mode === "single";
+    const hasSelection = selected.length > 0;
 
     const excludeIds = useMemo(
         () => new Set(selected.map((item) => item.id)),
@@ -441,7 +445,13 @@ export function ResourcePicker({
     );
 
     function handleAddMany(items) {
-        onChange([ ...selected, ...items ]);
+        if (isSingle) {
+            // Single mode: replace selection entirely
+            onChange(items);
+        } else {
+            // Multi mode: append to existing selection
+            onChange([ ...selected, ...items ]);
+        }
         setModalOpen(false);
     }
 
@@ -449,17 +459,22 @@ export function ResourcePicker({
         onChange(selected.filter((item) => item.id !== id));
     }
 
+    // In single mode, don't show add button if already have a selection
+    const showAddButton = !isSingle || !hasSelection;
+
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <span className="block text-sm font-medium text-gray-700">{label}</span>
-                <button
-                    type="button"
-                    onClick={() => setModalOpen(true)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                    + Add {type === "product" ? "products" : "collections"}
-                </button>
+                {showAddButton && (
+                    <button
+                        type="button"
+                        onClick={() => setModalOpen(true)}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                        + Add {type === "product" ? "product" : "collection"}
+                    </button>
+                )}
             </div>
 
             {hint ? <p className="text-xs text-gray-500">{hint}</p> : null}
@@ -467,9 +482,13 @@ export function ResourcePicker({
 
             {selected.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
-                    No {type === "product" ? "products" : "collections"} selected yet.
+                    No {type === "product" ? "product" : "collection"} selected yet.
                 </div>
+            ) : isSingle ? (
+                // Single mode: show single tile (clickable to change)
+                <SelectedTargetTile item={selected[0]} onRemove={handleRemove} />
             ) : (
+                // Multi mode: show grid
                 <SelectedTargetGrid items={selected} onRemove={handleRemove} />
             )}
 

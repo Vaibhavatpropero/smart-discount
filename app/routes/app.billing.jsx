@@ -44,14 +44,22 @@ export async function loader({ request }) {
         return data({
             planName: "FREE",
             planStatus: "TRIALING",
+            trialLapsed: false,
             trialDaysRemaining: 14,
             subscription: null,
         });
     }
 
+    const trialLapsed =
+        shop.planName === "FREE" &&
+        shop.planStatus === "TRIALING" &&
+        Boolean(shop.trialEndsAt) &&
+        getTrialDaysRemaining(shop.trialEndsAt) <= 0;
+
     return data({
         planName: shop.planName,
         planStatus: shop.planStatus,
+        trialLapsed,
         trialDaysRemaining: getTrialDaysRemaining(shop.trialEndsAt),
         subscription: shop.subscription
             ? {
@@ -100,14 +108,6 @@ export async function action({ request }) {
             targetPlan,
         });
         return data({ error: "Invalid plan" }, { status: 400 });
-    }
-
-    if (targetPlan === "ADVANCE" && process.env.NODE_ENV === "production") {
-        logger.warn("app.billing.action", "Blocked ADVANCE plan purchase in production", {
-            shop: session.shop,
-            targetPlan,
-        });
-        return data({ error: "Advance plan is not available yet." }, { status: 403 });
     }
 
     const shop = await prisma.shop.findUnique({
@@ -385,7 +385,7 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
             className={[
                 "relative flex flex-col h-full rounded-2xl border bg-white p-6 transition-shadow duration-200",
                 isCurrent
-                    ? "border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.12)] shadow-lg"
+                    ? "border-blue-500 shadow-lg"
                     : isAdvance
                         ? "border-orange-200 hover:shadow-md"
                         : "border-gray-200 hover:shadow-md hover:border-gray-300",
@@ -493,7 +493,8 @@ function PlanCard({ planKey, currentPlanName, currentPlanStatus }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function BillingPage() {
-    const { planName, planStatus, trialDaysRemaining, subscription } = useLoaderData();
+    const { planName, planStatus, trialLapsed, trialDaysRemaining, subscription } =
+        useLoaderData();
     const actionData = useActionData();
 
     useEffect(() => {
@@ -503,8 +504,8 @@ export default function BillingPage() {
         console.log(`Subscription: ${JSON.stringify(subscription)}`);
     }, [])
 
-    const isTrialing = planStatus === "TRIALING";
-    const isExpired = planStatus === "EXPIRED";
+    const isTrialing = planStatus === "TRIALING" && !trialLapsed;
+    const isExpired = planStatus === "EXPIRED" || trialLapsed;
     const isActive = planStatus === "ACTIVE";
 
     return (
@@ -514,7 +515,10 @@ export default function BillingPage() {
                 <div className="mb-7">
                     <div className="flex items-center gap-3 flex-wrap">
                         <h1 className="text-xl font-bold text-gray-900">Subscription &amp; billing</h1>
-                        <StatusBadge planStatus={planStatus} trialDaysRemaining={trialDaysRemaining} />
+                        <StatusBadge
+                            planStatus={trialLapsed ? "EXPIRED" : planStatus}
+                            trialDaysRemaining={trialDaysRemaining}
+                        />
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
                         Manage your Smart Discount plan. Changes take effect immediately.

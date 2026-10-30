@@ -333,7 +333,7 @@ export async function upsertUsageFromOrder({ shopId, order, webhookId }) {
                             orderSubtotal: totals.orderSubtotal,
                             orderTotal: totals.orderTotal,
                             currency: totals.currency,
-                            ...(totals.cancelled ? { cancelled: true } : {}),
+                            cancelled: totals.cancelled,
                         },
                     });
 
@@ -372,8 +372,75 @@ export async function markUsageCancelledForOrder({ shopId, shopifyOrderId }) {
 }
 
 /**
+ * Prorates a whole-order refund total across the order's DiscountUsage rows,
+ * proportional to each row's discountAmount. The sum of prorated shares always
+ * equals refundedTotal (rounded to 2dp, residual cent assigned to the largest
+ * row). Rows with a zero/missing discountAmount split the total equally.
+ *
+ * Policy: refunds never reduce totalUsageCount/totalSavings — this helper only
+ * attributes refundedAmount per discount. See markUsageRefunded JSDoc.
+ *
+ * @param {Array<{ id: string, discountAmount: number|string }>} usages
+ * @param {number} refundedTotal
+ * @returns {Map<string, number>} usageId -> prorated refund amount (2dp)
+ */
+export function prorateRefundAcrossUsages(usages, refundedTotal) {
+    const result = new Map();
+    if (usages.length === 0 || refundedTotal <= 0) {
+        for (const u of usages) result.set(u.id, 0);
+        return result;
+    }
+
+    const valid = usages
+        .map((u) => ({ id: u.id, amount: Number(u.discountAmount) }))
+        .filter((u) => Number.isFinite(u.amount) && u.amount > 0);
+
+    const round2 = (x) => Math.floor(x * 100) / 100;
+
+    if (valid.length === 0) {
+        // All rows have zero/invalid amounts → equal split.
+        const share = round2(refundedTotal / usages.length);
+        let residual = round2(refundedTotal - share * usages.length);
+        for (const u of usages) {
+            result.set(u.id, share);
+            if (residual > 0) {
+                result.set(u.id, round2(result.get(u.id) + residual));
+                residual = round2(residual - residual);
+            }
+        }
+        return result;
+    }
+
+    if (valid.length === 1) {
+        result.set(valid[0].id, round2(refundedTotal));
+        return result;
+    }
+
+    const basis = valid.reduce((sum, u) => sum + u.amount, 0);
+    let runningTotal = 0;
+    let largest = valid[0];
+
+    for (const u of valid) {
+        const share = round2((refundedTotal * u.amount) / basis);
+        result.set(u.id, share);
+        runningTotal = round2(runningTotal + share);
+        if (u.amount > largest.amount) largest = u;
+    }
+
+    // Residual cent goes to the largest row so the sum matches exactly.
+    const residual = round2(refundedTotal - runningTotal);
+    if (residual !== 0) {
+        result.set(largest.id, round2(result.get(largest.id) + residual));
+    }
+
+    return result;
+}
+
+/**
  * REFUNDS_CREATE
- * Marks refunded flag + amount on usage rows for the order.
+ * Marks refunded flag + prorated amount on each usage row for the order.
+ * Refund amount is attributed per discount (proportional to discountAmount),
+ * not smeared as the whole-order total on every row.
  * Totals still exclude only cancelled rows (refund does not remove usage count).
  */
 export async function markUsageRefunded({
@@ -391,13 +458,27 @@ export async function markUsageRefunded({
         ) ?? 0
     );
 
-    await prisma.discountUsage.updateMany({
+    const usages = await prisma.discountUsage.findMany({
         where: { shopId, shopifyOrderId: { in: ids } },
-        data: {
-            refunded: true,
-            refundedAmount: refundedTotal,
-        },
+        select: { id: true, discountAmount: true },
     });
+
+    if (usages.length === 0) return;
+
+    const prorated = prorateRefundAcrossUsages(usages, refundedTotal);
+
+    await prisma.$transaction(
+        usages.map((usage) => {
+            const amount = prorated.get(usage.id) ?? 0;
+            return prisma.discountUsage.update({
+                where: { id: usage.id },
+                data: {
+                    refunded: amount > 0,
+                    refundedAmount: amount,
+                },
+            });
+        })
+    );
 
     await recalculateAffectedDiscounts({ shopId, shopifyOrderId: ids });
 }

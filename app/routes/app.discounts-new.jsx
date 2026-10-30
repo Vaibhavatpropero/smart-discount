@@ -94,12 +94,7 @@ export const loader = async ({ request }) => {
     // Priority: URL group param > template type > default (order)
     // ============================================
     const derivedGroup =
-        requestedGroup ||
-        (template?.discountType === "APP_CAPPED"
-            ? "app"
-            : template
-                ? template.family
-                : "order");
+        requestedGroup || (template ? template.family : "order");
 
     const group = String(derivedGroup).toLowerCase();
     const groupConfig = getGroupConfig(group);
@@ -182,13 +177,7 @@ export const action = async ({ request }) => {
         // ============================================
         // STEP 3: Determine Discount Group
         // ============================================
-        const derivedGroup =
-            requestedGroup ||
-            (template?.discountType === "APP_CAPPED"
-                ? "app"
-                : template
-                    ? template.family
-                    : "order");
+        const derivedGroup = requestedGroup || (template ? template.family : "order");
 
         const group = String(derivedGroup).toLowerCase();
         const groupConfig = getGroupConfig(group);

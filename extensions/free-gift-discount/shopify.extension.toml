@@ -2,7 +2,7 @@ api_version = "2026-07"
 
 [[extensions]]
 name = "t:name"
-handle = "free-gift-discounte"
+handle = "free-gift-discount"
 type = "function"
 uid = "9a007383-f23f-35fe-8bef-a21de68518326842d725"
 description = "t:description"

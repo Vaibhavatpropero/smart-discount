@@ -1,5 +1,9 @@
 {
-  "5": "ReviewStep.jsx",
+  "1": "plan-gate.server.js",
+  "5": "app.discounts.jsx",
+  "6": "shopify.server.js",
+  "14": "free-gift-discount/src/cart_lines_discounts_generate_run.js",
+  "18": "DiscountWizardComponents.jsx",
   "40": "discount-identity.server.js",
   "41": "create_chunk3.py"
 }

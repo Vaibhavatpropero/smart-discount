@@ -20,6 +20,11 @@ const DISCOUNT_CODE_ACTIVATE_MUTATION = `#graphql
             endsAt
             status
           }
+          ... on DiscountCodeApp {
+            startsAt
+            endsAt
+            status
+          }
         }
       }
       userErrors {
@@ -42,6 +47,11 @@ const DISCOUNT_CODE_DEACTIVATE_MUTATION = `#graphql
             status
           }
           ... on DiscountCodeFreeShipping {
+            startsAt
+            endsAt
+            status
+          }
+          ... on DiscountCodeApp {
             startsAt
             endsAt
             status
@@ -77,6 +87,11 @@ const DISCOUNT_AUTOMATIC_ACTIVATE_MUTATION = `#graphql
             endsAt
             status
           }
+          ... on DiscountAutomaticApp {
+            startsAt
+            endsAt
+            status
+          }
         }
       }
       userErrors {
@@ -104,6 +119,11 @@ const DISCOUNT_AUTOMATIC_DEACTIVATE_MUTATION = `#graphql
             status
           }
           ... on DiscountAutomaticFreeShipping {
+            startsAt
+            endsAt
+            status
+          }
+          ... on DiscountAutomaticApp {
             startsAt
             endsAt
             status
@@ -278,7 +298,7 @@ export const action = async ({ request }) => {
           : discount.startsAt,
         endsAt: payload.discount.endsAt
           ? new Date(payload.discount.endsAt)
-          : null,
+          : discount.endsAt,
         lastSyncedAt: new Date(),
         lastError: null,
       },

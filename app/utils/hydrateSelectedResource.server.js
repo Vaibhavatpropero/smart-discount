@@ -24,6 +24,13 @@ const NODES_QUERY = `#graphql
         image { url altText }
         productsCount { count }
       }
+      ... on ProductVariant {
+        id
+        title
+        sku
+        price { amount currencyCode }
+        product { id title handle status featuredImage { url altText } }
+      }
     }
   }
 `;
@@ -58,6 +65,28 @@ function normalizeCollection(node) {
     };
 }
 
+/**
+ * Normalizes a Shopify ProductVariant node into the ResourcePicker item contract.
+ * @param {object} node - GraphQL ProductVariant node
+ * @returns {object} { id, type, title, handle, description, status, image, priceLabel, skuPreview }
+ */
+function normalizeVariant(node) {
+    const price = node.price;
+    const product = node.product || {};
+
+    return {
+        id: node.id,
+        type: "product",
+        title: `${product.title ?? ""} — ${node.title}`.trim(),
+        handle: product.handle ?? null,
+        description: null,
+        status: product.status ?? null,
+        image: product.featuredImage?.url ?? null,
+        priceLabel: price ? `${price.amount} ${price.currencyCode}` : null,
+        skuPreview: node.sku ?? null,
+    };
+}
+
 export default async function hydrateSelectedResource({ admin, type, ids }) {
     if (!Array.isArray(ids) || ids.length === 0) return [];
 
@@ -74,6 +103,12 @@ export default async function hydrateSelectedResource({ admin, type, ids }) {
             if (type === "collection") {
                 return node.handle !== undefined && node.productsCount !== undefined
                     ? normalizeCollection(node)
+                    : null;
+            }
+
+            if (type === "variant") {
+                return node.title !== undefined && node.product !== undefined
+                    ? normalizeVariant(node)
                     : null;
             }
 

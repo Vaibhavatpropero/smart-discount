@@ -10,6 +10,7 @@ import ValueStep from "./steps/ValueStep.jsx";
 import ConditionsStep from "./steps/ConditionsStep.jsx";
 import ScheduleStep from "./steps/ScheduleStep.jsx";
 import ReviewStep from "./steps/ReviewStep.jsx";
+import { serializeFreeGiftConfigForForm } from "./freeGiftFormSerializer.js";
 
 /**
  * Maps form field names to wizard step indices for error navigation
@@ -54,7 +55,7 @@ export const ERROR_STEP_BY_FIELD = {
     // Step 3: Schedule
     startsAt: 3,
     endsAt: 3,
-    usageLimit: 3,
+    usageLimit: 2,
 };
 
 /**
@@ -244,7 +245,7 @@ function getGroupSpecificFields({ state, group }) {
             <input
                 type="hidden"
                 name="freeGiftConfig"
-                value={JSON.stringify(state.freeGiftConfig)}
+                value={JSON.stringify(serializeFreeGiftConfigForForm(state))}
             />
         );
     }
@@ -278,18 +279,15 @@ export function computeDiscountType({ group, groupConfig, state, template }) {
 }
 
 /**
- * Gets the visible steps for the current group
- * BXGY and Shipping groups don't have targeting step
- * @param {string} group - Discount group
- * @returns {Array} Filtered steps array
+ * Gets the visible steps for the current group.
+ * All 5 steps (basics, value, conditions, schedule, review) render for every
+ * group; groups differ inside step bodies. The old "targeting" step key was
+ * removed — no step uses it.
+ * @param {string} group - Discount group (unused, kept for API compatibility)
+ * @returns {Array} All steps
  */
 export function getVisibleSteps(group) {
-    return STEPS.filter((step) => {
-        if (group === "bxgy" || group === "shipping") {
-            return step.key !== "targeting";
-        }
-        return true;
-    });
+    return STEPS;
 }
 
 /**

@@ -441,8 +441,14 @@ export function validateDiscountForm({
     // 7. Minimum requirements
     errors = { ...errors, ...validateMinimumRequirements({ minimumType, minimumSubtotal, minimumQuantity, isAppCapped: isAppCapped || isFreeGift }) };
 
-    // 8. Usage limit
-    errors = { ...errors, ...validateUsageLimit(usageLimit) };
+    // 8. Usage limit — skipped for app-fn AUTOMATIC (DiscountAutomaticAppInput
+    // cannot enforce usage limits; buildDraftPayload nulls them)
+    const skipUsageLimitValidation =
+        (isAppCapped || isFreeGift) && method === "AUTOMATIC";
+    errors = {
+        ...errors,
+        ...(skipUsageLimitValidation ? {} : validateUsageLimit(usageLimit)),
+    };
 
     // 9. Date range
     errors = { ...errors, ...validateDateRange(startsAt, endsAt) };

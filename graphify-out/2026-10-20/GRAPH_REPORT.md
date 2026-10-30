@@ -1,17 +1,17 @@
 # Graph Report - sd-dev  (2026-10-20)
 
 ## Corpus Check
-- 94 files · ~48,795 words
+- 94 files · ~49,092 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 25 file(s) not represented in the graph (top: (none) 11, .toml 6, .graphql 4)
 
 ## Summary
-- 736 nodes · 1392 edges · 41 communities (28 shown, 13 thin omitted)
+- 737 nodes · 1395 edges · 43 communities (30 shown, 13 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 9 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ce55a07d`
+- Built from commit: `c0d21f60`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,6 +21,7 @@
 - App Routes & Core Pages
 - Custom Discount Sync Logic
 - GitHub Actions CI/CD Pipeline
+- ReviewStep.jsx
 - Resource Search API
 - Admin Logs Dashboard
 - Package Metadata
@@ -48,6 +49,7 @@
 - Package Overrides
 - discount-identity.server.js
 - create_chunk3.py
+- app._index.jsx
 
 ## God Nodes (most connected - your core abstractions)
 1. `scripts` - 29 edges
@@ -64,14 +66,14 @@
 ## Surprising Connections (you probably didn't know these)
 - `cartDeliveryOptionsDiscountsGenerateRun (capped-order-discount)` --semantically_similar_to--> `cartDeliveryOptionsDiscountsGenerateRun (free-gift-discount)`  [INFERRED] [semantically similar]
   extensions/capped-order-discount/src/cart_delivery_options_discounts_generate_run.js.txt → extensions/free-gift-discount/src/cart_delivery_options_discounts_generate_run.js.txt
-- `ConditionsStep()` --calls--> `ResourcePicker()`  [EXTRACTED]
-  app/components/discount-wizard/steps/ConditionsStep.jsx → app/components/ResourcePicker.jsx
 - `Index()` --calls--> `AnalyticsSection()`  [EXTRACTED]
   app/routes/app._index.jsx → app/components/analytics/AnalyticsSection.jsx
 - `StepContent()` --calls--> `ReviewStep()`  [EXTRACTED]
   app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ReviewStep.jsx
-- `StepContent()` --calls--> `ValueStep()`  [EXTRACTED]
-  app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ValueStep.jsx
+- `ValueStep()` --calls--> `getCurrencySymbol()`  [EXTRACTED]
+  app/components/discount-wizard/steps/ValueStep.jsx → app/utils/currency.js
+- `ErrorBoundary()` --calls--> `RouteErrorFallback()`  [EXTRACTED]
+  app/routes/app.discounts-edit.jsx → app/components/route-error.jsx
 
 ## Import Cycles
 - None detected.
@@ -89,19 +91,19 @@
 - **Shopify App Runtime Configuration** — github_workflows_deploy_secret_shopify_api_key, github_workflows_deploy_secret_shopify_api_secret, github_workflows_deploy_secret_scopes, github_workflows_deploy_secret_shopify_app_url [EXTRACTED 1.00]
 - **Shopify Cart Delivery Options Discount Function Pattern** — extensions_capped_order_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, extensions_free_gift_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, concept_free_delivery_discount_logic [INFERRED 0.95]
 
-## Communities (41 total, 13 thin omitted)
+## Communities (43 total, 13 thin omitted)
 
 ### Community 0 - "Discount Wizard Configuration"
-Cohesion: 0.08
-Nodes (63): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), BasicsStep() (+55 more)
+Cohesion: 0.07
+Nodes (64): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), BasicsStep() (+56 more)
 
 ### Community 1 - "UI Components & Error Handling"
-Cohesion: 0.06
-Nodes (52): DeleteDiscountButton(), DevErrorDetails(), RouteErrorFallback(), action(), action(), getDiscountPayload(), mapShopifyStatusToDbStatus(), ActionCell() (+44 more)
+Cohesion: 0.09
+Nodes (33): DeleteDiscountButton(), action(), action(), getDiscountPayload(), mapShopifyStatusToDbStatus(), ActionCell(), CreateOptionCard(), DiscountsPage() (+25 more)
 
 ### Community 2 - "App Routes & Core Pages"
 Cohesion: 0.07
-Nodes (51): action(), BillingInfo(), BillingPage(), CheckIcon(), ExpiredBanner(), loader(), PlanCard(), StatusBadge() (+43 more)
+Nodes (50): action(), BillingInfo(), BillingPage(), CheckIcon(), ExpiredBanner(), loader(), PlanCard(), StatusBadge() (+42 more)
 
 ### Community 3 - "Custom Discount Sync Logic"
 Cohesion: 0.16
@@ -111,9 +113,13 @@ Nodes (40): buildAppCappedConfiguration(), buildFunctionMetafield(), createAutom
 Cohesion: 0.07
 Nodes (41): Deploy SmartDiscount to EC2 Workflow, docker/build-push-action@v7 action, docker/setup-buildx-action@v4 action, actions/checkout@v6 action, aws-actions/configure-aws-credentials@v6 action, aws-actions/amazon-ecr-login@v2 action, appleboy/ssh-action@v1.2.2 action, smartdiscount-production concurrency group (+33 more)
 
+### Community 5 - "ReviewStep.jsx"
+Cohesion: 0.36
+Nodes (8): formatAppCappedSummary(), formatBxgySummary(), formatFreeGiftSummary(), formatShippingSummary(), ReviewStep(), CURRENCY_SYMBOLS, formatCurrencyHint(), getCurrencySymbol()
+
 ### Community 6 - "Resource Search API"
-Cohesion: 0.11
-Nodes (18): buildCollectionSearchQuery(), buildProductSearchQuery(), loader(), normalizeCollection(), normalizeProduct(), parseIdsParam(), headers(), loginErrorMessage() (+10 more)
+Cohesion: 0.09
+Nodes (20): buildCollectionSearchQuery(), buildProductSearchQuery(), loader(), normalizeCollection(), normalizeProduct(), parseIdsParam(), headers(), loginErrorMessage() (+12 more)
 
 ### Community 7 - "Admin Logs Dashboard"
 Cohesion: 0.10
@@ -160,8 +166,8 @@ Cohesion: 0.11
 Nodes (19): devDependencies, eslint, eslint-import-resolver-typescript, eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react, eslint-plugin-react-hooks, graphql-config (+11 more)
 
 ### Community 18 - "Resource Picker Component"
-Cohesion: 0.12
-Nodes (21): formatAppCappedSummary(), formatBxgySummary(), formatShippingSummary(), ReviewStep(), ShippingCountriesInput(), ValueStep(), getItemDescription(), getItemMeta() (+13 more)
+Cohesion: 0.24
+Nodes (11): getItemDescription(), getItemMeta(), getItemStatus(), ResultRow(), SearchModal(), SelectedTargetGrid(), SelectedTargetTile(), TargetPreviewCard() (+3 more)
 
 ### Community 19 - "Changelog: Template Evolution"
 Cohesion: 0.14
@@ -200,8 +206,12 @@ Cohesion: 0.67
 Nodes (3): Database Configuration, DATABASE_URL, LOCAL_DATABASE_URL
 
 ### Community 40 - "discount-identity.server.js"
-Cohesion: 0.21
-Nodes (17): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), buildDiscountSelect(), buildExcludeWhere(), COLLISION_MATCH_TYPE, DISCOUNT_METHOD, DISCOUNT_STATUS, findLiveCodeCollision() (+9 more)
+Cohesion: 0.23
+Nodes (19): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), buildDiscountMatchKey(), buildDiscountSelect(), buildExcludeWhere(), COLLISION_MATCH_TYPE, DISCOUNT_METHOD, DISCOUNT_STATUS (+11 more)
+
+### Community 42 - "app._index.jsx"
+Cohesion: 0.16
+Nodes (18): DevErrorDetails(), RouteErrorFallback(), ErrorBoundary(), ErrorBoundary(), ErrorBoundary(), AlertBanner(), DiscountStatusPill(), ErrorBoundary() (+10 more)
 
 ## Knowledge Gaps
 - **107 isolated node(s):** `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers`, `vitest` (+102 more)
@@ -211,17 +221,17 @@ Nodes (17): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), build
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react-router` connect `UI Components & Error Handling` to `Discount Wizard Configuration`, `App Routes & Core Pages`, `Resource Search API`, `Admin Logs Dashboard`, `Package Metadata`, `Analytics UI Components`, `Server Entry & Shopify Auth`?**
+- **Why does `react-router` connect `Resource Search API` to `Discount Wizard Configuration`, `UI Components & Error Handling`, `App Routes & Core Pages`, `Admin Logs Dashboard`, `Package Metadata`, `app._index.jsx`, `Analytics UI Components`, `Server Entry & Shopify Auth`?**
   _High betweenness centrality (0.107) - this node is a cross-community bridge._
 - **What connects `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function` to the rest of the system?**
   _107 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Discount Wizard Configuration` be split into smaller, more focused modules?**
-  _Cohesion score 0.07518796992481203 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0680517916290274 - nodes in this community are weakly interconnected._
 - **Why does `react` connect `Discount Wizard Configuration` to `UI Components & Error Handling`, `App Routes & Core Pages`, `Resource Search API`, `Package Metadata`, `Analytics UI Components`, `Resource Picker Component`?**
   _High betweenness centrality (0.054) - this node is a cross-community bridge._
 - **Should `UI Components & Error Handling` be split into smaller, more focused modules?**
-  _Cohesion score 0.06247086247086247 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09291521486643438 - nodes in this community are weakly interconnected._
 - **Why does `scripts` connect `Package Scripts & Commands` to `Package Metadata`?**
   _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **Should `App Routes & Core Pages` be split into smaller, more focused modules?**
-  _Cohesion score 0.06583850931677018 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07086247086247087 - nodes in this community are weakly interconnected._

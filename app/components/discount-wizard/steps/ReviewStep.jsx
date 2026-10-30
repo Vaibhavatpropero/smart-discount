@@ -47,11 +47,32 @@ function formatAppCappedSummary(state, symbol) {
     return `${state.discountValue || 0}% off order subtotal, capped at ${symbol}${state.cappedAmount || 0}`;
 }
 
+function formatFreeGiftSummary(state, symbol) {
+    const giftVariantId = state.giftVariantId || "Not selected";
+    const giftQuantity = state.giftQuantity || 1;
+
+    const triggerPart = state.triggerType === "ORDER_THRESHOLD"
+        ? state.thresholdKind === "SUBTOTAL"
+            ? `Order spend ≥ ${symbol}${state.thresholdMinSubtotal || 0}`
+            : `Order quantity ≥ ${state.thresholdMinQuantity || 0}`
+        : state.productTriggerProductIds.length > 0
+            ? `Purchase includes: ${state.productTriggerProductIds.length} product(s)`
+            : "No trigger products selected";
+
+    const minQtyPart = state.triggerType === "PRODUCT_TRIGGER" && state.productTriggerMinQuantity
+        ? ` (min ${state.productTriggerMinQuantity} qty each)`
+        : "";
+
+    return `Gift: variant ${giftVariantId} × ${giftQuantity} · Unlocked when ${triggerPart}${minQtyPart}`;
+}
+
 export default function ReviewStep({ state, groupConfig, shopCurrency }) {
     const symbol = getCurrencySymbol(shopCurrency);
     const isBxgy = groupConfig.discountType === "BXGY";
     const isFreeShipping = groupConfig.discountType === "FREE_SHIPPING";
     const isAppCapped = groupConfig.discountType === "APP_CAPPED";
+    const isFreeGift = groupConfig.discountType === "APP_FREE_GIFT";
+    const isAutomaticAppFn = (isAppCapped || isFreeGift) && state.method === "AUTOMATIC";
 
     // useEffect(() => {
     //     console.log(`Form final state: ${JSON.stringify(state)}`);
@@ -117,7 +138,26 @@ export default function ReviewStep({ state, groupConfig, shopCurrency }) {
                             : "Starts immediately",
                     },
                 ]
-                : [
+                : isFreeGift
+                    ? [
+                        { label: "Title", value: state.title },
+                        { label: "Discount family", value: groupConfig.title },
+                        {
+                            label: "Method",
+                            value: state.method === "CODE" ? `Code: ${state.discountCode}` : "Automatic",
+                        },
+                        { label: "Free gift rule", value: formatFreeGiftSummary(state, symbol) },
+                        ...(isAutomaticAppFn
+                            ? []
+                            : [{ label: "Usage limit", value: state.usageLimit || "Unlimited" }]),
+                        {
+                            label: "Schedule",
+                            value: state.startsAt
+                                ? `${state.startsAt} → ${state.endsAt || "No end date"}`
+                                : "Starts immediately",
+                        },
+                    ]
+                    : [
                     { label: "Title", value: state.title },
                     { label: "Discount family", value: groupConfig.title },
                     {

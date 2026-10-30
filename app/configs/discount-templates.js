@@ -6,6 +6,7 @@ export const DISCOUNT_TEMPLATE_FAMILIES = {
     BXGY: "bxgy",
     SHIPPING: "shipping",
     FREE_GIFT: "free_gift",
+    APP: "app",
 };
 
 export const DISCOUNT_TEMPLATES = [
@@ -149,7 +150,7 @@ export const DISCOUNT_TEMPLATES = [
         slug: "app-capped-order",
         name: "Capped percentage off order",
         description: "Apply a percentage discount to the order subtotal, capped at a maximum amount.",
-        family: DISCOUNT_TEMPLATE_FAMILIES.ORDER,
+        family: DISCOUNT_TEMPLATE_FAMILIES.APP,
         category: "Capped percent off order",
         discountType: "APP_CAPPED",
         method: "AUTOMATIC",

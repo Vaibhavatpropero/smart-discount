@@ -11,7 +11,7 @@ import { SquarePen } from 'lucide-react';
 import { listDiscountTemplates } from "../configs/discount-templates.js";
 import { DeleteDiscountButton, RouteErrorFallback } from "../components";
 
-const TEMPLATE_FAMILY_META = {
+export const TEMPLATE_FAMILY_META = {
     order: {
         title: "Order discounts",
         description: "Templates for cart-wide promotions.",
@@ -27,6 +27,14 @@ const TEMPLATE_FAMILY_META = {
     shipping: {
         title: "Free shipping",
         description: "Templates for shipping-based conversion offers.",
+    },
+    free_gift: {
+        title: "Free gift",
+        description: "Templates for free gift with purchase offers.",
+    },
+    app: {
+        title: "Smart app discounts",
+        description: "Functions-based custom discounts for Advance plans.",
     },
 };
 
@@ -155,6 +163,15 @@ export const loader = async ({ request }) => {
             href: "/app/discounts-new?group=shipping",
             locked: false,
             badge: "Core",
+        },
+        {
+            key: "FREE_GIFT",
+            title: "Free gift",
+            description: "Add a free product when customers meet spend/quantity thresholds or buy specific products.",
+            examples: [ "Free gift on $100+", "Free gift with product purchase", "Advance plan only" ],
+            href: "/app/discounts-new?group=free_gift",
+            locked: !access.canUseFunctionsDiscounts,
+            badge: "Advance",
         },
         // {
         //     key: "APP_FUNCTIONS",

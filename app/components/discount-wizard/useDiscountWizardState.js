@@ -105,6 +105,8 @@ export function useDiscountWizardState({
     const getInitialThresholdMinQuantity = () => getInitialFreeGiftConfig().threshold?.minQuantity ?? "";
     const getInitialProductTriggerProductIds = () => getInitialFreeGiftConfig().productTrigger?.productIds ?? [];
     const getInitialProductTriggerMinQuantity = () => getInitialFreeGiftConfig().productTrigger?.minQuantityPerProduct ?? null;
+    const getInitialGiftProduct = () => initialState?.giftProduct ?? null;
+    const getInitialProductTriggerProducts = () => initialState?.productTriggerProducts ?? [];
 
     const [ title, setTitle ] = useState(getInitialTitle);
     const [ description, setDescription ] = useState(getInitialDescription);
@@ -197,8 +199,6 @@ export function useDiscountWizardState({
     const [ startsAt, setStartsAt ] = useState(getInitialStartsAt);
     const [ endsAt, setEndsAt ] = useState(getInitialEndsAt);
 
-    // Free Gift Config state
-    const [ freeGiftConfig, setFreeGiftConfig ] = useState(getInitialFreeGiftConfig);
     const [ giftVariantId, setGiftVariantId ] = useState(getInitialGiftVariantId);
     const [ giftQuantity, setGiftQuantity ] = useState(getInitialGiftQuantity);
     const [ triggerType, setTriggerType ] = useState(getInitialTriggerType);
@@ -207,6 +207,8 @@ export function useDiscountWizardState({
     const [ thresholdMinQuantity, setThresholdMinQuantity ] = useState(getInitialThresholdMinQuantity);
     const [ productTriggerProductIds, setProductTriggerProductIds ] = useState(getInitialProductTriggerProductIds);
     const [ productTriggerMinQuantity, setProductTriggerMinQuantity ] = useState(getInitialProductTriggerMinQuantity);
+    const [ giftProduct, setGiftProduct ] = useState(getInitialGiftProduct);
+    const [ productTriggerProducts, setProductTriggerProducts ] = useState(getInitialProductTriggerProducts);
 
     const [ currentStep, setCurrentStep ] = useState(getInitialCurrentStep);
 
@@ -462,8 +464,6 @@ export function useDiscountWizardState({
         shippingDestinationCountries, setShippingDestinationCountries,
         maximumShippingPrice, setMaximumShippingPrice,
 
-        // Free Gift Config
-        freeGiftConfig, setFreeGiftConfig,
         giftVariantId, setGiftVariantId,
         giftQuantity, setGiftQuantity,
         triggerType, setTriggerType,
@@ -472,6 +472,8 @@ export function useDiscountWizardState({
         thresholdMinQuantity, setThresholdMinQuantity,
         productTriggerProductIds, setProductTriggerProductIds,
         productTriggerMinQuantity, setProductTriggerMinQuantity,
+        giftProduct, setGiftProduct,
+        productTriggerProducts, setProductTriggerProducts,
 
         startsAt, setStartsAt,
         endsAt, setEndsAt,

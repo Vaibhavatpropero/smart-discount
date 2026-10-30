@@ -32,13 +32,18 @@ function hasPlanAtLeast(currentPlanName, requiredPlanName) {
     return (PLAN_RANK[ currentPlanName ] ?? -1) >= (PLAN_RANK[ requiredPlanName ] ?? 999);
 }
 
-function buildLimitations({ shop, trialDaysRemaining }) {
+export function buildLimitations({ shop, trialDaysRemaining, trialLapsed }) {
     const items = [];
 
-    if (shop.planName === "FREE" && shop.planStatus === "TRIALING") {
+    if (shop.planName === "FREE" && shop.planStatus === "TRIALING" && !trialLapsed) {
         items.push(`Free trial active — ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} remaining`);
         items.push("Maximum 3 active discounts at a time");
         items.push("Advanced targeting, premium templates, and Shopify Functions are locked");
+    }
+
+    if (trialLapsed) {
+        items.push("Trial expired — discount creation and editing are locked");
+        items.push("Existing discounts are read-only until upgrade");
     }
 
     if (shop.planName === "FREE" && shop.planStatus === "EXPIRED") {
@@ -59,9 +64,18 @@ function buildLimitations({ shop, trialDaysRemaining }) {
     return items;
 }
 
-function buildCapabilities({ shop, trialDaysRemaining }) {
-    const isTrialing = shop.planName === "FREE" && shop.planStatus === "TRIALING";
-    const isExpired = shop.planName === "FREE" && shop.planStatus === "EXPIRED";
+export function buildCapabilities({ shop, trialDaysRemaining }) {
+    const isTrialingRaw = shop.planName === "FREE" && shop.planStatus === "TRIALING";
+    // FREE shops never receive APP_SUBSCRIPTIONS_UPDATE, so a passed trialEndsAt
+    // is the only expiry signal. Null trialEndsAt = never armed → keep trialing.
+    const trialLapsed =
+        isTrialingRaw &&
+        Boolean(shop.trialEndsAt) &&
+        trialDaysRemaining <= 0;
+    const isTrialing = isTrialingRaw && !trialLapsed;
+    const isExpired =
+        trialLapsed ||
+        (shop.planName === "FREE" && shop.planStatus === "EXPIRED");
     const isBasic = shop.planName === "BASIC" && shop.planStatus === "ACTIVE";
     const isAdvance = shop.planName === "ADVANCE" && shop.planStatus === "ACTIVE";
 
@@ -93,7 +107,7 @@ function buildCapabilities({ shop, trialDaysRemaining }) {
         canUseFunctionsDiscounts: isTrialOrAdvance,
         canUseAdvancedCombinability: isTrialOrAdvance,
 
-        limitations: buildLimitations({ shop, trialDaysRemaining }),
+        limitations: buildLimitations({ shop, trialDaysRemaining, trialLapsed }),
     };
 }
 

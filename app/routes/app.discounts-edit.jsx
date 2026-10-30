@@ -23,6 +23,7 @@ import {
     buildDraftPayload,
     buildBxgyConfigPayload,
     buildInitialState,
+    normalizeJson,
 } from "../helpers/NativeDiscountsPayloadHelper.js";
 import { useDiscountWizardState } from "../components/discount-wizard/useDiscountWizardState.js";
 import { RouteErrorFallback } from "../components";
@@ -174,6 +175,62 @@ export async function loader({ request }) {
             })
             : [];
 
+    // Free-gift hydration: gift variant + trigger products (product or variant GIDs)
+    let hydratedGiftProduct = null;
+    let hydratedProductTriggerProducts = [];
+    try {
+        if (group === "free_gift" && discount.freeGiftConfig) {
+            const fgConfig = typeof discount.freeGiftConfig === "string"
+                ? normalizeJson(discount.freeGiftConfig)
+                : discount.freeGiftConfig;
+
+            if (fgConfig) {
+                const giftVariantId = fgConfig.giftVariantId;
+                const triggerIds = Array.isArray(fgConfig.productTrigger?.productIds)
+                    ? fgConfig.productTrigger.productIds
+                    : [];
+
+                const allIds = [...new Set([giftVariantId, ...triggerIds].filter(Boolean))];
+
+                if (allIds.length > 0) {
+                    // Split by GID type so each is resolved with the right GraphQL fragment
+                    const productIds = allIds.filter(
+                        (id) => id.startsWith("gid://shopify/Product/") && !id.includes("/ProductVariant/"),
+                    );
+                    const variantIds = allIds.filter((id) =>
+                        id.startsWith("gid://shopify/ProductVariant/"),
+                    );
+
+                    const hydratedProducts = productIds.length > 0
+                        ? await hydrateSelectedResource({ admin, type: "product", ids: productIds })
+                        : [];
+                    const hydratedVariants = variantIds.length > 0
+                        ? await hydrateSelectedResource({ admin, type: "variant", ids: variantIds })
+                        : [];
+
+                    const byId = new Map(
+                        [...hydratedProducts, ...hydratedVariants].map((item) => [item.id, item]),
+                    );
+
+                    hydratedGiftProduct =
+                        byId.get(giftVariantId) ?? {
+                            id: giftVariantId,
+                            type: "product",
+                            title: giftVariantId,
+                        };
+                    hydratedProductTriggerProducts = triggerIds.map(
+                        (id) => byId.get(id) ?? { id, type: "product", title: id },
+                    );
+                }
+            }
+        }
+    } catch (err) {
+        logger.warn(SRC, "Free gift resource hydration failed", {
+            discountId: discount.id,
+            error: logger.serializeError ? logger.serializeError(err) : String(err),
+        });
+    }
+
     // ============================================
     // STEP 8: Build Initial Wizard State from Database
     // ============================================
@@ -182,6 +239,8 @@ export async function loader({ request }) {
             ...discount,
             targetProducts: hydratedTargetProducts,
             targetCollections: hydratedTargetCollections,
+            giftProduct: hydratedGiftProduct,
+            productTriggerProducts: hydratedProductTriggerProducts,
             bxgyConfig: discount.bxgyConfig
                 ? {
                     ...discount.bxgyConfig,
@@ -567,7 +626,7 @@ export default function DiscountEditRoute() {
 
     const state = useDiscountWizardState({
         groupConfig,
-        template: null,
+        template,
         groupValue: group,
         initialState,
     });

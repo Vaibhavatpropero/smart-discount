@@ -5,7 +5,8 @@ import { ResourcePicker } from "../../index.js";
 export default function ConditionsStep({ state, errors, showTargeting, groupConfig, shopCurrency }) {
     const isBxgy = groupConfig.discountType === "BXGY";
     const isAppCapped = groupConfig.discountType === "APP_CAPPED";
-    const isAutomaticAppCapped = isAppCapped && state.method === "AUTOMATIC";
+    const isFreeGift = groupConfig.discountType === "APP_FREE_GIFT";
+    const isAutomaticAppFn = (isAppCapped || isFreeGift) && state.method === "AUTOMATIC";
 
     // DEBUG:
     // useEffect(() => {
@@ -211,7 +212,7 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                 </div>
             ) : null}
 
-            {!isAppCapped ?
+            {!isAppCapped && !isFreeGift ?
                 <label className="block">
                     <span className="mb-1 block text-sm font-medium text-gray-700">Minimum purchase requirement</span>
                     <select
@@ -226,7 +227,7 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                 </label> : null
             }
 
-            {state.minimumType === "SUBTOTAL" ? (
+            {!isFreeGift && state.minimumType === "SUBTOTAL" ? (
                 <label className="block">
                     <span className="mb-1 block text-sm font-medium text-gray-700">Minimum subtotal</span>
                     <input
@@ -254,8 +255,8 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                 </label>
             ) : null}
 
-            {/* Usage limit: hide only when APP_CAPPED + AUTOMATIC */}
-            {!isAutomaticAppCapped && (
+            {/* Usage limit: hide only when app-fn + AUTOMATIC */}
+            {!isAutomaticAppFn && (
                 <label className="block">
                     <span className="mb-1 block text-sm font-medium text-gray-700">
                         Usage limit
@@ -283,8 +284,8 @@ export default function ConditionsStep({ state, errors, showTargeting, groupConf
                     { key: "combineWithProductDiscounts", label: "Combine with product discounts" },
                     { key: "combineWithShippingDiscounts", label: "Combine with shipping discounts" },
                 ].map((toggle) => {
-                    // Hide only appliesOncePerCustomer when APP_CAPPED + AUTOMATIC
-                    if (isAutomaticAppCapped && toggle.key === "appliesOncePerCustomer") {
+                    // Hide only appliesOncePerCustomer when app-fn + AUTOMATIC
+                    if (isAutomaticAppFn && toggle.key === "appliesOncePerCustomer") {
                         return null;
                     }
 

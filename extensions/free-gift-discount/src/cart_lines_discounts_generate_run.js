@@ -155,7 +155,8 @@ function productTriggerMet({ config, cart }) {
     if (!merch || merch.__typename !== "ProductVariant") continue;
 
     const variantId = merch.id;
-    if (!productIds.includes(variantId)) continue;
+    const productId = merch.product?.id;
+    if (!productIds.includes(variantId) && !(productId && productIds.includes(productId))) continue;
 
     const qty = Number(line.quantity ?? 0);
     if (!Number.isFinite(qty) || qty <= 0) continue;
@@ -215,7 +216,8 @@ export function cartLinesDiscountsGenerateRun(input) {
     return (
       merch &&
       merch.__typename === "ProductVariant" &&
-      merch.id === config.giftVariantId
+      (merch.id === config.giftVariantId ||
+        (merch.product?.id && merch.product.id === config.giftVariantId))
     );
   });
 

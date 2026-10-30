@@ -472,6 +472,8 @@ model DiscountUsage {
 }
 
 model DiscountDailyStat {
+  // Reserved for future daily-analytics rollups.
+  // No writer/reader yet — see docs/CAPPED-ORDER-KNOWN-GAPS.md (B6).
   id         String   @id @default(cuid())
   shopId     String
   discountId String

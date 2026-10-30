@@ -19,6 +19,7 @@ node_modules
 /prisma/dev.sqlite-journal
 database.sqlite
 
+# Ignore sensitive files
 .env
 .env.*
 *.pem
