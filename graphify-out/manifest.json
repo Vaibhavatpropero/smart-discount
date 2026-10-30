@@ -426,16 +426,16 @@
     "semantic_hash": "92d5f46f07e56037692cf2fd99684f32"
   },
   "extensions/free-gift-discount/locales/en.default.json": {
-    "mtime": 1790599068.31601,
-    "seen": 1792406072.5314372,
-    "ast_hash": "4de62fbfa2ecc668530e0aabb0b3ce19",
-    "semantic_hash": "4de62fbfa2ecc668530e0aabb0b3ce19"
+    "mtime": 1793381793.6852806,
+    "seen": 1793382878.5972245,
+    "ast_hash": "7b82e8f8ffb3092b5c389767dd691625",
+    "semantic_hash": ""
   },
   "extensions/free-gift-discount/package.json": {
-    "mtime": 1790599068.31601,
-    "seen": 1792406072.531439,
-    "ast_hash": "a58b57f3f10ee74c80dfca210a2b6922",
-    "semantic_hash": "a58b57f3f10ee74c80dfca210a2b6922"
+    "mtime": 1793381765.0717082,
+    "seen": 1793382878.5972285,
+    "ast_hash": "01445ccb847a4dc25b5aa879005ba4f1",
+    "semantic_hash": ""
   },
   "extensions/free-gift-discount/src/cart_lines_discounts_generate_run.js": {
     "mtime": 1793368412.9879055,
@@ -534,9 +534,9 @@
     "semantic_hash": "b91324e7c6854fe1d4aa7b56a3a542e7"
   },
   ".github/workflows/deploy.yml": {
-    "mtime": 1793361876.0374568,
-    "seen": 1793370374.0476365,
-    "ast_hash": "9746987f8d196c63ec821f8c791b4588",
+    "mtime": 1793381847.566211,
+    "seen": 1793382878.5996668,
+    "ast_hash": "ec46724f7d51a6dd064dc41bd4d90d00",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
@@ -546,9 +546,9 @@
     "semantic_hash": "957150dfe08d7b68052c6269f853498e"
   },
   "CLAUDE.md": {
-    "mtime": 1793364258.4525025,
-    "seen": 1793370374.0478718,
-    "ast_hash": "c8ea183d9fb9c480fac326ed1326cd15",
+    "mtime": 1793375973.9575212,
+    "seen": 1793382878.5998032,
+    "ast_hash": "6c8ac6619834368ef9d84a90f9c28fbb",
     "semantic_hash": ""
   },
   "README.md": {
