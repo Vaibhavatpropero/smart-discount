@@ -146,6 +146,13 @@ jobs:
 
             echo "==> Verify container"
             sleep 20
+            # Fail the job if the container is crash-looping (e.g. a failed migration at boot)
+            if [ -z "$(docker ps --filter "name=$AWS_CONTAINER_NAME" --filter "status=running" -q)" ]; then
+              echo "==> ERROR: container $AWS_CONTAINER_NAME is not running"
+              docker logs --tail 100 "$AWS_CONTAINER_NAME" || true
+              docker ps --filter "name=$AWS_CONTAINER_NAME" || true
+              exit 1
+            fi
             docker ps --filter "name=$AWS_CONTAINER_NAME"
             docker logs --tail 100 "$AWS_CONTAINER_NAME"
             docker inspect "$AWS_CONTAINER_NAME" --format '{{json .Mounts}}'

@@ -5,6 +5,9 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+# Copy workspace manifests so `npm ci` can validate workspaces against the lockfile
+COPY extensions/capped-order-discount/package.json extensions/capped-order-discount/
+COPY extensions/free-gift-discount/package.json extensions/free-gift-discount/
 RUN npm ci && npm cache clean --force
 
 COPY . .

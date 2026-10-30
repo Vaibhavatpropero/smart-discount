@@ -29,7 +29,6 @@ database.sqlite
 prisma/*.db
 
 # Generated / noise
-package-lock.json
 extensions/*/generated/
 extensions/*/tests/fixtures/
 /extensions/*/dist

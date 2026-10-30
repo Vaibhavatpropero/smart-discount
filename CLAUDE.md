@@ -13,6 +13,9 @@ For each session the AI needs to follow evrything written in this file and if so
 6. Whenever Planing or Implementing a feature you must plan/create it corresponding unit test.
 7. Always Follow Test Driven Development(TDD).
 
+# MCP Rules
+- When doing code review, restructuring, or looking for setup steps, configuration steps, or library/API documentation, automatically use the `context7` tools to resolve and query the latest documentation and prompt the finding to user.
+
 ## Project Overview
 
 **Smart Discount** is an embedded Shopify app that lets merchants create, manage, and analyze discount campaigns from a custom admin UI. Merchants pick a discount template, walk a 5-step wizard, and the app pushes the discount to Shopify via Admin GraphQL — native discount types use Shopify's built-in mutations, while two custom types run on Shopify Functions (WASM) deployed from this repo.

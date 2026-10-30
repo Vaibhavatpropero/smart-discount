@@ -3,3 +3,11 @@
 node_modules
 .git
 *.pem
+
+# Don't bake AI/analysis output, CI config, docs, or generated app assets into the prod image
+graphify-out/
+.github/
+docs/
+.claude/
+.react-router/
+*.md
