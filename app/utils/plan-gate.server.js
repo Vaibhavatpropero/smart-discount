@@ -2,7 +2,7 @@
 import { data } from "react-router";
 import prisma from "../db.server.js";
 import { authenticate } from "../shopify.server.js";
-import { getTrialDaysRemaining } from "./billing.server.js";
+import { getTrialDaysRemaining, isTrialLapsed } from "./billing.server.js";
 import { getCachedAccess, setCachedAccess } from "./access-cache.server.js";
 import { logger } from "./logger.server.js";
 
@@ -64,14 +64,23 @@ export function buildLimitations({ shop, trialDaysRemaining, trialLapsed }) {
     return items;
 }
 
+/**
+ * Derives plan capabilities from a shop row. Pure function: no DB, no clock, no caching.
+ *
+ * @param {object} shop — shop row
+ * @param {string} shop.planName — e.g. "FREE", "BASIC", "ADVANCE"
+ * @param {string} shop.planStatus — e.g. "TRIALING", "ACTIVE", "EXPIRED"
+ * @param {Date|null} shop.trialEndsAt — trial end timestamp
+ * @param {number} trialDaysRemaining — days left on the trial (freshly computed)
+ * @returns {object} planName, planStatus, trialDaysRemaining, isTrialing, isExpired,
+ *   isBasic, isAdvance, isPaid, canCreateDiscount, maxActiveDiscounts, canUse*,
+ *   limitations
+ */
 export function buildCapabilities({ shop, trialDaysRemaining }) {
     const isTrialingRaw = shop.planName === "FREE" && shop.planStatus === "TRIALING";
-    // FREE shops never receive APP_SUBSCRIPTIONS_UPDATE, so a passed trialEndsAt
-    // is the only expiry signal. Null trialEndsAt = never armed → keep trialing.
-    const trialLapsed =
-        isTrialingRaw &&
-        Boolean(shop.trialEndsAt) &&
-        trialDaysRemaining <= 0;
+    // A passed trialEndsAt is the only expiry signal for FREE shops (they never receive
+    // APP_SUBSCRIPTIONS_UPDATE). Null trialEndsAt is treated as expired (fail-closed).
+    const trialLapsed = isTrialingRaw && isTrialLapsed(shop);
     const isTrialing = isTrialingRaw && !trialLapsed;
     const isExpired =
         trialLapsed ||
@@ -197,45 +206,46 @@ export function getDiscountAccessState(access, discount) {
     };
 }
 
+/**
+ * Returns plan/access context for the authenticated shop.
+ *
+ * Caches the raw shop row (DB state, TTL backstop only) and re-derives the
+ * time-dependent capabilities (trialDaysRemaining, isTrialing, isExpired, …)
+ * on every request, so a lapsed trial locks the shop instantly instead of up to
+ * a TTL after the deadline.
+ *
+ * @param {object} request — authenticated admin request
+ * @returns {Promise<object>} { shop, subscription, trialDaysRemaining, access, session, redirect }
+ */
 export async function getPlanContext(request) {
     const { session, redirect } = await authenticate.admin(request);
 
-    const cached = getCachedAccess(session.shop);
-    if (cached) {
-        return {
-            ...cached,
-            session,
-            redirect,
-        };
-    }
-
-    const shop = await prisma.shop.findUnique({
-        where: { shopDomain: session.shop },
-        include: { subscription: true },
-    });
-
+    let shop = getCachedAccess(session.shop);
     if (!shop) {
-        logger.error("plan-gate", "Shop not found while building plan context", {
-            shop: session.shop,
+        shop = await prisma.shop.findUnique({
+            where: { shopDomain: session.shop },
+            include: { subscription: true },
         });
 
-        throw data({ error: "Shop not found" }, { status: 404 });
+        if (!shop) {
+            logger.error("plan-gate", "Shop not found while building plan context", {
+                shop: session.shop,
+            });
+
+            throw data({ error: "Shop not found" }, { status: 404 });
+        }
+
+        setCachedAccess(session.shop, shop);
     }
 
     const trialDaysRemaining = getTrialDaysRemaining(shop.trialEndsAt);
     const access = buildCapabilities({ shop, trialDaysRemaining });
 
-    const result = {
+    return {
         shop,
         subscription: shop.subscription,
         trialDaysRemaining,
         access,
-    };
-
-    setCachedAccess(session.shop, result);
-
-    return {
-        ...result,
         session,
         redirect,
     };

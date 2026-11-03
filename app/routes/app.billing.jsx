@@ -8,6 +8,7 @@ import {
     createAppSubscription,
     savePendingSubscriptionChange,
     getTrialDaysRemaining,
+    isTrialLapsed,
 } from "../utils/billing.server.js";
 import { PLANS } from "../utils/plans.js";
 import { useEffect } from "react";
@@ -41,20 +42,18 @@ export async function loader({ request }) {
             shop: session.shop,
         });
 
+        // Fail-closed: a shop row missing at load time is treated as expired,
+        // not as a fresh 14-day trial.
         return data({
             planName: "FREE",
-            planStatus: "TRIALING",
-            trialLapsed: false,
-            trialDaysRemaining: 14,
+            planStatus: "EXPIRED",
+            trialLapsed: true,
+            trialDaysRemaining: 0,
             subscription: null,
         });
     }
 
-    const trialLapsed =
-        shop.planName === "FREE" &&
-        shop.planStatus === "TRIALING" &&
-        Boolean(shop.trialEndsAt) &&
-        getTrialDaysRemaining(shop.trialEndsAt) <= 0;
+    const trialLapsed = isTrialLapsed(shop);
 
     return data({
         planName: shop.planName,

@@ -2,6 +2,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../db.server.js";
 import { logger } from "./logger.server.js";
+import { invalidateAccessCache } from "./access-cache.server.js";
 
 const SHOP_INFO_QUERY = `#graphql
   query ShopInfo {
@@ -21,6 +22,18 @@ function getTrialEndsAt() {
     return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Ensures a shop row exists for the given domain, creating it on install or
+ * refreshing it on re-install.
+ * - Fresh installs: FREE/TRIALING with trialEndsAt = now + 14 days.
+ * - Re-installs: keeps the original trialEndsAt (never mints a fresh trial);
+ *   marks EXPIRED if that window already lapsed.
+ *
+ * @param {object} params
+ * @param {string} params.shopDomain — myshopify domain
+ * @param {object} params.admin — Shopify admin client (GraphQL)
+ * @returns {Promise<object>} the shop row
+ */
 export async function upsertShopOnInstall({ shopDomain, admin }) {
     logger.info("shop.server", "Ensuring shop exists in DB", { shopDomain });
 
@@ -30,6 +43,8 @@ export async function upsertShopOnInstall({ shopDomain, admin }) {
             id: true,
             shopDomain: true,
             uninstalledAt: true,
+            trialEndsAt: true,
+            planStatus: true,
         },
     });
 
@@ -87,6 +102,9 @@ export async function upsertShopOnInstall({ shopDomain, admin }) {
     };
 
     if (existing?.uninstalledAt) {
+        // Re-installs never mint a fresh trial — keep the original trial window so
+        // merchants cannot farm unlimited trials by uninstalling/reinstalling.
+        const lapsed = !existing.trialEndsAt || new Date(existing.trialEndsAt) <= Date.now();
         const updated = await prisma.shop.update({
             where: { shopDomain },
             data: {
@@ -98,18 +116,21 @@ export async function upsertShopOnInstall({ shopDomain, admin }) {
                 timezone: shopData.timezone,
                 countryCode: shopData.countryCode,
                 planName: "FREE",
-                planStatus: "TRIALING",
-                trialEndsAt: shopData.trialEndsAt,
+                planStatus: lapsed ? "EXPIRED" : "TRIALING",
+                trialEndsAt: existing.trialEndsAt,
                 billingId: null,
                 billingConfirmedAt: null,
                 uninstalledAt: null,
             },
         });
 
+        invalidateAccessCache(shopDomain);
+
         logger.info("shop.server", "Shop re-installed and reset", {
             shopDomain,
             shopId: updated.id,
-            trialEndsAt,
+            trialEndsAt: updated.trialEndsAt,
+            planStatus: updated.planStatus,
         });
 
         return updated;
@@ -119,6 +140,8 @@ export async function upsertShopOnInstall({ shopDomain, admin }) {
         const created = await prisma.shop.create({
             data: shopData,
         });
+
+        invalidateAccessCache(shopDomain);
 
         logger.info("shop.server", "Shop created", {
             shopDomain,

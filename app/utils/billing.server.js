@@ -176,6 +176,26 @@ export function getTrialDaysRemaining(trialEndsAt) {
     return Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
 }
 
+/**
+ * Returns whether a FREE shop's free trial has lapsed.
+ * A passed trialEndsAt is the only expiry signal for FREE shops (they never receive
+ * APP_SUBSCRIPTIONS_UPDATE). Null trialEndsAt is treated as expired (fail-closed)
+ * rather than an infinite trial.
+ *
+ * @param {object} shop — shop row
+ * @param {string} shop.planName — e.g. "FREE", "BASIC", "ADVANCE"
+ * @param {string} shop.planStatus — e.g. "TRIALING", "ACTIVE", "EXPIRED"
+ * @param {Date|null} shop.trialEndsAt — trial end timestamp
+ * @returns {boolean} true when the free trial has lapsed and the shop should be locked
+ */
+export function isTrialLapsed(shop) {
+    return (
+        shop.planName === "FREE" &&
+        shop.planStatus === "TRIALING" &&
+        getTrialDaysRemaining(shop.trialEndsAt) <= 0
+    );
+}
+
 export function normalizeShopifySubscriptionStatus(status) {
     const normalized = String(status || "").toUpperCase();
 
