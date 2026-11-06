@@ -1,12 +1,12 @@
-# Graph Report - sd-dev  (2026-11-04)
+# Graph Report - sd-dev  (2026-11-06)
 
 ## Corpus Check
-- 112 files · ~57,832 words
+- 114 files · ~58,455 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 25 file(s) not represented in the graph (top: (none) 11, .toml 6, .graphql 4)
 
 ## Summary
-- 785 nodes · 1510 edges · 43 communities (29 shown, 14 thin omitted)
+- 786 nodes · 1517 edges · 50 communities (33 shown, 17 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 13 edges (avg confidence: 0.89)
 - Token cost: 0 input · 0 output
 
@@ -16,13 +16,13 @@
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- Discount Wizard Configuration
-- app.discounts-new.jsx
-- logger.server.js
+- app.discounts-edit.jsx
+- free-gift-discount/src/cart_lines_discounts_generate_run.js
+- discount-usage.server.js
 - Custom Discount Sync Logic
 - GitHub Actions CI/CD Pipeline
 - app.discounts.jsx
-- app.billing.jsx
+- plan-gate.server.js
 - discount-identity.server.js
 - Package Metadata
 - Package Scripts & Commands
@@ -30,7 +30,7 @@
 - Free Gift Discount Extension
 - Analytics UI Components
 - README Features & Deployment
-- ref_vitest
+- capped-order-discount/src/cart_lines_discounts_generate_run.js
 - Package Dependencies
 - TypeScript Configuration
 - Package Dev Dependencies
@@ -38,23 +38,31 @@
 - Changelog: Template Evolution
 - CLAUDE: Project Architecture
 - AWS & EC2 Configuration
+- shopify.server.js
 - entry.server.jsx
 - Shopify API Environment Config
 - MCP Server Configuration
-- @shopify/shopify-app-react-router
+- app.admin.logs.jsx
 - Database Environment Config
 - allowScripts
+- react-router
 - vite.config.js
 - @react-router/fs-routes
 - create_chunk3.py
 - engines
 - overrides
+- logger.server.js
+- @shopify/shopify-app-react-router
+- api.resource-search.jsx
+- api-version-consistency.test.js
+- .graphqlrc.js
+- api.health.jsx
 
 ## God Nodes (most connected - your core abstractions)
-1. `scripts` - 25 edges
+1. `scripts` - 22 edges
 2. `Shopify App Template React Router` - 21 edges
-3. `logger` - 19 edges
-4. `react-router` - 19 edges
+3. `logger` - 20 edges
+4. `react-router` - 20 edges
 5. `validateDiscountForm()` - 18 edges
 6. `compilerOptions` - 18 edges
 7. `getPlanContext()` - 17 edges
@@ -63,16 +71,16 @@
 10. `assertGraphqlSucceeded()` - 15 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `loader()` --calls--> `upsertShopOnInstall()`  [EXTRACTED]
+  app/routes/app.jsx → app/utils/shop.server.js
 - `cartDeliveryOptionsDiscountsGenerateRun (capped-order-discount)` --semantically_similar_to--> `cartDeliveryOptionsDiscountsGenerateRun (free-gift-discount)`  [INFERRED] [semantically similar]
   extensions/capped-order-discount/src/cart_delivery_options_discounts_generate_run.js.txt → extensions/free-gift-discount/src/cart_delivery_options_discounts_generate_run.js.txt
-- `ValueStep()` --calls--> `ResourcePicker()`  [EXTRACTED]
-  app/components/discount-wizard/steps/ValueStep.jsx → app/components/ResourcePicker.jsx
+- `Index()` --calls--> `AnalyticsSection()`  [EXTRACTED]
+  app/routes/app._index.jsx → app/components/analytics/AnalyticsSection.jsx
 - `StepContent()` --calls--> `ConditionsStep()`  [EXTRACTED]
   app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ConditionsStep.jsx
-- `Probe()` --calls--> `useDiscountWizardState()`  [EXTRACTED]
-  app/test/useDiscountWizardState.test.js → app/components/discount-wizard/useDiscountWizardState.js
-- `ErrorBoundary()` --calls--> `RouteErrorFallback()`  [EXTRACTED]
-  app/routes/app.discounts-edit.jsx → app/components/route-error.jsx
+- `StepContent()` --calls--> `ReviewStep()`  [EXTRACTED]
+  app/components/discount-wizard/DiscountWizardComponents.jsx → app/components/discount-wizard/steps/ReviewStep.jsx
 
 ## Import Cycles
 - None detected.
@@ -90,23 +98,23 @@
 - **Shopify App Runtime Configuration** — github_workflows_deploy_secret_shopify_api_key, github_workflows_deploy_secret_shopify_api_secret, github_workflows_deploy_secret_scopes, github_workflows_deploy_secret_shopify_app_url [EXTRACTED 1.00]
 - **Shopify Cart Delivery Options Discount Function Pattern** — extensions_capped_order_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, extensions_free_gift_discount_src_cart_delivery_options_discounts_generate_run_cartdeliverydiscountsgeneraterun, concept_free_delivery_discount_logic [INFERRED 0.95]
 
-## Communities (43 total, 14 thin omitted)
+## Communities (50 total, 17 thin omitted)
 
-### Community 0 - "Discount Wizard Configuration"
+### Community 0 - "app.discounts-edit.jsx"
 Cohesion: 0.06
-Nodes (64): getDiscountTemplateByDiscount(), getDiscountTemplateBySlug(), asResourceArray(), buildBxgyConfigPayload(), buildDraftPayload(), buildFreeGiftConfigPayload(), buildInitialState(), getGroupConfig() (+56 more)
+Nodes (66): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), serializeFreeGiftConfigForForm() (+58 more)
 
-### Community 1 - "app.discounts-new.jsx"
-Cohesion: 0.08
-Nodes (38): computeDiscountType(), ERROR_STEP_BY_FIELD, getGroupSpecificFields(), getVisibleSteps(), HiddenFields(), StepContent(), useWizardNavigation(), serializeFreeGiftConfigForForm() (+30 more)
+### Community 1 - "free-gift-discount/src/cart_lines_discounts_generate_run.js"
+Cohesion: 0.14
+Nodes (9): cartLinesDiscountsGenerateRun(), conditionsMet(), EMPTY_RESULT, orderThresholdMet(), parseConfiguration(), productTriggerMet(), EMPTY, giftLine() (+1 more)
 
-### Community 2 - "logger.server.js"
-Cohesion: 0.06
-Nodes (51): buildCollectionSearchQuery(), buildProductSearchQuery(), loader(), normalizeCollection(), normalizeProduct(), parseIdsParam(), headers(), loader() (+43 more)
+### Community 2 - "discount-usage.server.js"
+Cohesion: 0.16
+Nodes (26): action(), handleAppUninstalled(), handleOrdersCancelledWebhook(), handleOrdersCreateWebhook(), handleOrdersUpdatedWebhook(), handleRefundsCreateWebhook(), mocks, orderWithDiscount (+18 more)
 
 ### Community 3 - "Custom Discount Sync Logic"
-Cohesion: 0.15
-Nodes (41): buildAppCappedConfiguration(), buildFunctionMetafield(), createAutomaticAppCappedDiscount(), createCodeAppCappedDiscount(), getCappedOrderFunctionId(), pushCustomDiscountToShopify(), resolveCappedOrderFunctionId(), buildAppFreeGiftConfiguration() (+33 more)
+Cohesion: 0.16
+Nodes (40): buildAppCappedConfiguration(), buildFunctionMetafield(), createAutomaticAppCappedDiscount(), createCodeAppCappedDiscount(), getCappedOrderFunctionId(), pushCustomDiscountToShopify(), resolveCappedOrderFunctionId(), buildAppFreeGiftConfiguration() (+32 more)
 
 ### Community 4 - "GitHub Actions CI/CD Pipeline"
 Cohesion: 0.07
@@ -116,21 +124,21 @@ Nodes (41): Deploy SmartDiscount to EC2 Workflow, docker/build-push-action@v7 ac
 Cohesion: 0.12
 Nodes (23): DeleteDiscountButton(), DevErrorDetails(), RouteErrorFallback(), DISCOUNT_TEMPLATE_FAMILIES, DISCOUNT_TEMPLATES, listDiscountTemplates(), ActionCell(), CreateOptionCard() (+15 more)
 
-### Community 6 - "app.billing.jsx"
-Cohesion: 0.20
-Nodes (14): action(), BillingInfo(), BillingPage(), CheckIcon(), ExpiredBanner(), loader(), PlanCard(), StatusBadge() (+6 more)
+### Community 6 - "plan-gate.server.js"
+Cohesion: 0.06
+Nodes (54): action(), action(), getDiscountPayload(), mapShopifyStatusToDbStatus(), action(), BillingInfo(), BillingPage(), CheckIcon() (+46 more)
 
 ### Community 7 - "discount-identity.server.js"
 Cohesion: 0.23
 Nodes (19): buildAutomaticDiscountMatchKey(), buildCodeDiscountMatchKey(), buildDiscountMatchKey(), buildDiscountSelect(), buildExcludeWhere(), COLLISION_MATCH_TYPE, DISCOUNT_METHOD, DISCOUNT_STATUS (+11 more)
 
 ### Community 8 - "Package Metadata"
-Cohesion: 0.06
-Nodes (30): author, name, private, trustedDependencies, type, workspaces, autoprefixer, dotenv-cli (+22 more)
+Cohesion: 0.07
+Nodes (29): author, name, private, trustedDependencies, type, workspaces, autoprefixer, dotenv-cli (+21 more)
 
 ### Community 9 - "Package Scripts & Commands"
-Cohesion: 0.08
-Nodes (25): scripts, build, build-extension:dev, build-extension:prod, db:dev, db:prod, deploy:dev, deploy:prod (+17 more)
+Cohesion: 0.09
+Nodes (22): scripts, build, build-extension:dev, build-extension:prod, db:dev, db:prod, deploy:dev, deploy:prod (+14 more)
 
 ### Community 10 - "Capped Order Discount Extension"
 Cohesion: 0.07
@@ -141,16 +149,16 @@ Cohesion: 0.07
 Nodes (26): codegen, config, documents, generates, schema, omitOperationSuffix, dependencies, @shopify/shopify_function (+18 more)
 
 ### Community 12 - "Analytics UI Components"
-Cohesion: 0.12
-Nodes (25): AnalyticsEmptyState(), AnalyticsSection(), AnalyticsSelector(), closePopover(), selectDiscount(), getStatusClass(), STATUS_CLASS, AnalyticsSummaryCards() (+17 more)
+Cohesion: 0.19
+Nodes (14): AnalyticsEmptyState(), AnalyticsSection(), AnalyticsSelector(), closePopover(), selectDiscount(), getStatusClass(), STATUS_CLASS, AnalyticsSummaryCards() (+6 more)
 
 ### Community 13 - "README Features & Deployment"
 Cohesion: 0.09
 Nodes (22): App Bridge, App Extensions, Declarative Custom Data, Docker Deployment, Fly.io, Google Cloud Run, GraphQL Admin API, Internationalization (+14 more)
 
-### Community 14 - "ref_vitest"
-Cohesion: 0.05
-Nodes (27): root, Free Delivery Discount Logic, DeliveryDiscountSelectionStrategy (capped-order-discount), DiscountClass (capped-order-discount), RunInput / DeliveryInput (capped-order-discount), CartDeliveryOptionsDiscountsGenerateRunResult (capped-order-discount), cartDeliveryOptionsDiscountsGenerateRun (capped-order-discount), cartLinesDiscountsGenerateRun() (+19 more)
+### Community 14 - "capped-order-discount/src/cart_lines_discounts_generate_run.js"
+Cohesion: 0.12
+Nodes (17): Free Delivery Discount Logic, DeliveryDiscountSelectionStrategy (capped-order-discount), DiscountClass (capped-order-discount), RunInput / DeliveryInput (capped-order-discount), CartDeliveryOptionsDiscountsGenerateRunResult (capped-order-discount), cartDeliveryOptionsDiscountsGenerateRun (capped-order-discount), cartLinesDiscountsGenerateRun(), computeCappedPercentageDiscount() (+9 more)
 
 ### Community 15 - "Package Dependencies"
 Cohesion: 0.10
@@ -165,8 +173,8 @@ Cohesion: 0.11
 Nodes (19): devDependencies, eslint, eslint-import-resolver-typescript, eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react, eslint-plugin-react-hooks, graphql-config (+11 more)
 
 ### Community 18 - "DiscountWizardComponents.jsx"
-Cohesion: 0.18
-Nodes (13): ConditionsStep(), getItemDescription(), getItemMeta(), getItemStatus(), ResourcePicker(), ResultRow(), SearchModal(), SelectedTargetGrid() (+5 more)
+Cohesion: 0.11
+Nodes (23): ConditionsStep(), formatAppCappedSummary(), formatBxgySummary(), formatFreeGiftSummary(), formatShippingSummary(), ReviewStep(), ShippingCountriesInput(), ValueStep() (+15 more)
 
 ### Community 19 - "Changelog: Template Evolution"
 Cohesion: 0.14
@@ -180,6 +188,10 @@ Nodes (12): Analytics, Billing and Plans, Capped Order Discount, Discount Sync w
 Cohesion: 0.17
 Nodes (12): AWS_ACCESS_KEY_ID, AWS_CONTAINER_NAME, AWS Credentials, AWS ECR, AWS_ECR_URI, AWS IAM for GH Bot, AWS_REGION, AWS_SECRET_ACCESS_KEY (+4 more)
 
+### Community 22 - "shopify.server.js"
+Cohesion: 0.14
+Nodes (10): headers(), loader(), headers(), apiVersion, authenticate, registerWebhooks, sessionStorage, shopify (+2 more)
+
 ### Community 23 - "entry.server.jsx"
 Cohesion: 0.33
 Nodes (5): handleRequest(), streamTimeout, addDocumentResponseHeaders, isbot, @react-router/node
@@ -192,9 +204,9 @@ Nodes (5): SCOPES, Shopify API Configuration, SHOPIFY_API_KEY, SHOPIFY_API_SECRE
 Cohesion: 0.50
 Nodes (3): npx, shopify-dev-mcp, @shopify/dev-mcp
 
-### Community 26 - "@shopify/shopify-app-react-router"
-Cohesion: 0.10
-Nodes (14): dayLabel(), formatBytes(), formatWithOffset(), listLogFiles(), loader(), parseRotationDate(), headers(), loginErrorMessage() (+6 more)
+### Community 26 - "app.admin.logs.jsx"
+Cohesion: 0.46
+Nodes (6): dayLabel(), formatBytes(), formatWithOffset(), listLogFiles(), loader(), parseRotationDate()
 
 ### Community 27 - "Database Environment Config"
 Cohesion: 0.67
@@ -208,25 +220,37 @@ Nodes (7): allowScripts, esbuild@0.25.12, @parcel/watcher@2.5.6, prisma@6.19.3, 
 Cohesion: 0.50
 Nodes (3): @react-router/dev, vite, vite-tsconfig-paths
 
+### Community 44 - "logger.server.js"
+Cohesion: 0.23
+Nodes (8): hydrateSelectedResource(), normalizeCollection(), normalizeProduct(), normalizeVariant(), ensureLogDir(), LOG_FILE, logger, writeLog()
+
+### Community 45 - "@shopify/shopify-app-react-router"
+Cohesion: 0.46
+Nodes (5): loginErrorMessage(), action(), loader(), login, @shopify/shopify-app-react-router
+
+### Community 46 - "api.resource-search.jsx"
+Cohesion: 0.52
+Nodes (6): buildCollectionSearchQuery(), buildProductSearchQuery(), loader(), normalizeCollection(), normalizeProduct(), parseIdsParam()
+
 ## Knowledge Gaps
 - **107 isolated node(s):** `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function`, `@shopify/shopify-function-test-helpers`, `vitest` (+102 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 332 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **14 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 330 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **17 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react-router` connect `Discount Wizard Configuration` to `app.discounts-new.jsx`, `logger.server.js`, `app.discounts.jsx`, `app.billing.jsx`, `Package Metadata`, `Analytics UI Components`, `entry.server.jsx`, `@shopify/shopify-app-react-router`, `root.jsx`?**
-  _High betweenness centrality (0.085) - this node is a cross-community bridge._
+- **Why does `react-router` connect `react-router` to `app.discounts-edit.jsx`, `app.discounts.jsx`, `plan-gate.server.js`, `Package Metadata`, `Analytics UI Components`, `@shopify/shopify-app-react-router`, `api.resource-search.jsx`, `api.health.jsx`, `shopify.server.js`, `entry.server.jsx`, `app.admin.logs.jsx`?**
+  _High betweenness centrality (0.086) - this node is a cross-community bridge._
 - **What connects `npx`, `@shopify/dev-mcp`, `@shopify/shopify_function` to the rest of the system?**
   _107 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Discount Wizard Configuration` be split into smaller, more focused modules?**
-  _Cohesion score 0.060534822215692036 - nodes in this community are weakly interconnected._
-- **Why does `react` connect `app.discounts-new.jsx` to `Discount Wizard Configuration`, `app.discounts.jsx`, `app.billing.jsx`, `Package Metadata`, `Analytics UI Components`, `DiscountWizardComponents.jsx`, `@shopify/shopify-app-react-router`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
-- **Should `app.discounts-new.jsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.08235294117647059 - nodes in this community are weakly interconnected._
-- **Why does `scripts` connect `Package Scripts & Commands` to `Package Metadata`?**
-  _High betweenness centrality (0.044) - this node is a cross-community bridge._
-- **Should `logger.server.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.061569416498993966 - nodes in this community are weakly interconnected._
+- **Should `app.discounts-edit.jsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.06165099268547544 - nodes in this community are weakly interconnected._
+- **Why does `react` connect `app.discounts-edit.jsx` to `app.discounts.jsx`, `plan-gate.server.js`, `Package Metadata`, `Analytics UI Components`, `@shopify/shopify-app-react-router`, `DiscountWizardComponents.jsx`?**
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
+- **Should `free-gift-discount/src/cart_lines_discounts_generate_run.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.14035087719298245 - nodes in this community are weakly interconnected._
+- **Why does `@shopify/shopify-app-react-router` connect `@shopify/shopify-app-react-router` to `app.discounts-edit.jsx`, `app.discounts.jsx`, `plan-gate.server.js`, `Package Metadata`, `.graphqlrc.js`, `shopify.server.js`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
+- **Should `GitHub Actions CI/CD Pipeline` be split into smaller, more focused modules?**
+  _Cohesion score 0.06585365853658537 - nodes in this community are weakly interconnected._
