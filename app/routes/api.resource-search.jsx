@@ -88,7 +88,10 @@ function normalizeProduct(node) {
     type: "product",
     title: node.title,
     handle: node.handle,
-    description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
+    description:
+      typeof node.description === "string" && node.description.length > 200
+        ? `${node.description.slice(0, 200)}...`
+        : node.description || null,
     status: node.status,
     image: node.featuredImage?.url || null,
     priceLabel: price ? `${price.amount} ${price.currencyCode}` : null,
@@ -102,7 +105,10 @@ function normalizeCollection(node) {
     type: "collection",
     title: node.title,
     handle: node.handle,
-    description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
+    description:
+      typeof node.description === "string" && node.description.length > 200
+        ? `${node.description.slice(0, 200)}...`
+        : node.description || null,
     status: "ACTIVE",
     image: node.image?.url || null,
     countLabel: `${node.productsCount?.count ?? 0} products`,

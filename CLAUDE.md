@@ -3,19 +3,6 @@
 This file provides guidance to Claude Code when working with code in this repository.
 For each session the AI needs to follow evrything written in this file and if something needed to be done which is ristricted in this file prompt the user/human what and why that needs to be done it will be handled by human itself.
 
-# HARD RULES (override everything below)
-
-1. NEVER read, open, list, search for, or write any `.env*` file by any method (Read, grep, cat, type, Get-Content, dir, find, glob). If a command fails with "DATABASE_URL missing" or similar, STOP and tell me. Do not go looking for env files.
-2. NEVER run the prisma CLI directly (`npx prisma ...`). Use only the scripts under ‘AI may run’.
-3. NEVER run anything listed under "HUMAN ONLY" below. If one is needed, tell me the exact command and stop.
-4. Only run scripts listed under "AI may run". Do not browse package.json for other scripts, and never invent one.
-5. If a needed command or script doesn't exist, ask me. Don't improvise.
-6. Whenever Planing or Implementing a feature you must plan/create it corresponding unit test.
-7. Always Follow Test Driven Development(TDD).
-
-# MCP Rules
-- When doing code review, restructuring, or looking for setup steps, configuration steps, or library/API documentation, automatically use the `context7` tools to resolve and query the latest documentation and prompt the finding to user.
-
 ## Project Overview
 
 **Smart Discount** is an embedded Shopify app that lets merchants create, manage, and analyze discount campaigns from a custom admin UI. Merchants pick a discount template, walk a 5-step wizard, and the app pushes the discount to Shopify via Admin GraphQL — native discount types use Shopify's built-in mutations, while two custom types run on Shopify Functions (WASM) deployed from this repo.
@@ -37,7 +24,7 @@ For each session the AI needs to follow evrything written in this file and if so
 
 ### Tech Stack
 - **React Router 7** framework mode (SSR) + Vite; flat fs-routes (`app/routes.js` → `flatRoutes()`)
-- **Auth/embedding**: `@shopify/shopify-app-react-router` in `app/shopify.server.js`; `authenticate.admin(request)` returns `admin.graphql()` (Admin API 2025-10)
+- **Auth/embedding**: `@shopify/shopify-app-react-router` in `app/shopify.server.js`; `authenticate.admin(request)` returns `admin.graphql()` (Admin API 2026-07)
 - **DB**: Prisma + **AWS RDS MySQL** (`prisma/schema.prisma`); sessions via `@shopify/shopify-app-session-storage-prisma`
 - **UI**: **custom Tailwind components**, NOT Polaris in the wizard (`@shopify/polaris-types` is dev-only); `@shopify/app-bridge-react` present but unused in wizard
 - **Extensions**: `extensions/capped-order-discount`, `extensions/free-gift-discount` — npm workspaces, `shopify app function` → WASM, vitest
@@ -94,14 +81,14 @@ npm run prisma:migrate:status          # read-only migration status vs stage DB
 npm run prisma:migrate:new "name"      # creates a migration FILE only (stage DB env)
 npm run test                           # vitest run — app/ unit tests (read-only)
 npm run test:watch                     # vitest — watch mode for TDD
+rm <file>                              # single plain files only (no -r, no globs): test files freely, other files only if git-tracked; never prisma/, .git, .claude, package.json
 ```
 
 ### HUMAN ONLY (never run; tell me the command instead)
 ```bash
 npm run dev, prod, start
 npm run db:dev, db:prod                # Prisma Studio
-npm run prisma:migrate:apply           # push pending migrations to stage DB
-npm run prisma:migrate:prod            # manual prod migrate + generate (override for docker-start)
+npm run prisma:migrate:deploy          # push pending migrations to stage DB
 npm run deploy:dev, deploy:prod        # deploy Shopify app/extensions
 npm run build-extension:dev, build-extension:prod
 docker build / docker run

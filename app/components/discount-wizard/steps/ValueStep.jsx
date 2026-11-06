@@ -424,7 +424,7 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                         selected={state.giftProduct
                             ? [state.giftProduct]
                             : state.giftVariantId
-                                ? [{ id: state.giftVariantId, title: state.giftVariantId }]
+                                ? [{ id: state.giftVariantId, type: "product", title: state.giftVariantId }]
                                 : []}
                         onChange={(items) => {
                             state.setGiftVariantId(items[0]?.id || "");
@@ -553,7 +553,7 @@ export default function ValueStep({ state, errors, shopCurrency, groupConfig }) 
                             selected={
                                 state.productTriggerProducts.length > 0
                                     ? state.productTriggerProducts
-                                    : state.productTriggerProductIds.map((id) => ({ id, title: id }))
+                                    : state.productTriggerProductIds.map((id) => ({ id, type: "product", title: id }))
                             }
                             onChange={(items) => {
                                 state.setProductTriggerProductIds(items.map((item) => item.id));

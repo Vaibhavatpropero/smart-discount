@@ -28,23 +28,39 @@ const NODES_QUERY = `#graphql
         id
         title
         sku
-        price { amount currencyCode }
-        product { id title handle status featuredImage { url altText } }
+        price
+        product {
+          id
+          title
+          handle
+          status
+          featuredImage { url altText }
+          priceRangeV2 { minVariantPrice { amount currencyCode } }
+        }
       }
     }
   }
 `;
 
+/**
+ * Normalizes a Shopify Product node into the ResourcePicker item contract.
+ * @param {object} node - GraphQL Product node from the `nodes` query
+ * @returns {object} { id, type, title, handle, description, status, image, priceLabel, skuPreview }
+ */
 function normalizeProduct(node) {
     const sku = node.variants?.edges?.[ 0 ]?.node?.sku || null;
     const price = node.priceRangeV2?.minVariantPrice;
+
+    const rawDescription = typeof node.description === "string" ? node.description : "";
+    const description =
+        rawDescription.length > 200 ? `${rawDescription.slice(0, 200)}...` : rawDescription || null;
 
     return {
         id: node.id,
         type: "product",
         title: node.title,
         handle: node.handle,
-        description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
+        description,
         status: node.status,
         image: node.featuredImage?.url || null,
         priceLabel: price ? `${price.amount} ${price.currencyCode}` : null,
@@ -52,13 +68,22 @@ function normalizeProduct(node) {
     };
 }
 
+/**
+ * Normalizes a Shopify Collection node into the ResourcePicker item contract.
+ * @param {object} node - GraphQL Collection node from the `nodes` query
+ * @returns {object} { id, type, title, handle, description, status, image, countLabel }
+ */
 function normalizeCollection(node) {
+    const rawDescription = typeof node.description === "string" ? node.description : "";
+    const description =
+        rawDescription.length > 200 ? `${rawDescription.slice(0, 200)}...` : rawDescription || null;
+
     return {
         id: node.id,
         type: "collection",
         title: node.title,
         handle: node.handle,
-        description: (node.description.length > 200 ? node.description.slice(0, 200) + "..." : node.description.slice(0, 200)) || null,
+        description,
         status: "ACTIVE",
         image: node.image?.url || null,
         countLabel: `${node.productsCount?.count ?? 0} products`,
@@ -67,12 +92,20 @@ function normalizeCollection(node) {
 
 /**
  * Normalizes a Shopify ProductVariant node into the ResourcePicker item contract.
- * @param {object} node - GraphQL ProductVariant node
+ *
+ * @param {object} node - GraphQL ProductVariant node from the `nodes` query
  * @returns {object} { id, type, title, handle, description, status, image, priceLabel, skuPreview }
+ *
+ * Note: in Admin API 2025-10 `ProductVariant.price` is a `Money` scalar
+ * (serialized as a decimal string like "10.00"), not a `MoneyV2` object — so it
+ * must not carry sub-selections in the query. The currency code is taken from the
+ * parent product's price range instead.
  */
 function normalizeVariant(node) {
-    const price = node.price;
+    const price = typeof node.price === "string" && node.price !== "" ? node.price : null;
     const product = node.product || {};
+    const currencyCode = product.priceRangeV2?.minVariantPrice?.currencyCode ?? null;
+    const priceLabel = price ? `${price}${currencyCode ? ` ${currencyCode}` : ""}` : null;
 
     return {
         id: node.id,
@@ -82,7 +115,7 @@ function normalizeVariant(node) {
         description: null,
         status: product.status ?? null,
         image: product.featuredImage?.url ?? null,
-        priceLabel: price ? `${price.amount} ${price.currencyCode}` : null,
+        priceLabel,
         skuPreview: node.sku ?? null,
     };
 }
@@ -94,6 +127,11 @@ export default async function hydrateSelectedResource({ admin, type, ids }) {
         variables: { ids },
     });
     const json = await response.json();
+
+    if (Array.isArray(json?.errors) && json.errors.length > 0) {
+        logger.warn(SRC, "Resource nodes query returned GraphQL errors", { type, ids, errors: json.errors });
+    }
+
     const nodes = json?.data?.nodes || [];
 
     return nodes

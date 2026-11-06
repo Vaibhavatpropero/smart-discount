@@ -1,0 +1,698 @@
+{
+  ".eslintrc.cjs": {
+    "mtime": 1779882966.926675,
+    "seen": 1792406072.5312681,
+    "ast_hash": "e92b71efa9c3ca442b18b39a4ab9cfe9",
+    "semantic_hash": "e92b71efa9c3ca442b18b39a4ab9cfe9"
+  },
+  ".graphqlrc.js": {
+    "mtime": 1793772036.9919798,
+    "seen": 1793772054.8608832,
+    "ast_hash": "b57d3f26779874088eba1834bc335483",
+    "semantic_hash": ""
+  },
+  ".mcp.json": {
+    "mtime": 1790595018.77181,
+    "seen": 1792406072.5312822,
+    "ast_hash": "5d64262e8caa4cdbcc9fc1fbd2cf1f82",
+    "semantic_hash": "5d64262e8caa4cdbcc9fc1fbd2cf1f82"
+  },
+  ".vscode/settings.json": {
+    "mtime": 1787550944.2277539,
+    "seen": 1792406072.5312846,
+    "ast_hash": "11fdb57a128fd7d5564350fc081965c8",
+    "semantic_hash": "11fdb57a128fd7d5564350fc081965c8"
+  },
+  "app/components/ResourcePicker.jsx": {
+    "mtime": 1792484854.8057587,
+    "seen": 1792484928.0597632,
+    "ast_hash": "8bea43c107c0da7386a6f1ac2dca93fa",
+    "semantic_hash": ""
+  },
+  "app/components/analytics/AnalyticsEmptyState.jsx": {
+    "mtime": 1784280473.9454746,
+    "seen": 1792406072.5312896,
+    "ast_hash": "23f7be816fd3615a7d02db8bc9bb3d23",
+    "semantic_hash": "23f7be816fd3615a7d02db8bc9bb3d23"
+  },
+  "app/components/analytics/AnalyticsSection.jsx": {
+    "mtime": 1784280623.8849466,
+    "seen": 1792406072.5312924,
+    "ast_hash": "1a58560396a6095b4e6f7fccebabf627",
+    "semantic_hash": "1a58560396a6095b4e6f7fccebabf627"
+  },
+  "app/components/analytics/AnalyticsSelector.jsx": {
+    "mtime": 1784280414.1832728,
+    "seen": 1792406072.5312943,
+    "ast_hash": "3ec78576a801992c004a3a10b3bb8af4",
+    "semantic_hash": "3ec78576a801992c004a3a10b3bb8af4"
+  },
+  "app/components/analytics/AnalyticsSummaryCards.jsx": {
+    "mtime": 1784280452.245783,
+    "seen": 1792406072.5312967,
+    "ast_hash": "4ff134fcfe8591d41727f555953777b5",
+    "semantic_hash": "4ff134fcfe8591d41727f555953777b5"
+  },
+  "app/components/analytics/RecentRedemptionsTable.jsx": {
+    "mtime": 1784280495.6119156,
+    "seen": 1792406072.531299,
+    "ast_hash": "9410c070174d8d6bb52a6c7e2c780d5c",
+    "semantic_hash": "9410c070174d8d6bb52a6c7e2c780d5c"
+  },
+  "app/components/analytics/index.js": {
+    "mtime": 1784277509.6799788,
+    "seen": 1792406072.531301,
+    "ast_hash": "3cf66a1dbb690cb3fe98ea5b7c83c4ec",
+    "semantic_hash": "3cf66a1dbb690cb3fe98ea5b7c83c4ec"
+  },
+  "app/components/discount-wizard/DiscountWizardComponents.jsx": {
+    "mtime": 1793368944.405722,
+    "seen": 1793370374.0399253,
+    "ast_hash": "1b7c570aad809eb85653358b0ff46f2c",
+    "semantic_hash": ""
+  },
+  "app/components/discount-wizard/WizardShell.jsx": {
+    "mtime": 1782887014.02301,
+    "seen": 1792406072.5313063,
+    "ast_hash": "a32d3749206712bd602a1c9f518356b9",
+    "semantic_hash": "a32d3749206712bd602a1c9f518356b9"
+  },
+  "app/components/discount-wizard/steps/BasicsStep.jsx": {
+    "mtime": 1789025611.267525,
+    "seen": 1792406072.5313082,
+    "ast_hash": "bd4add789d4e210ccf70ddcc31bb1ebe",
+    "semantic_hash": "bd4add789d4e210ccf70ddcc31bb1ebe"
+  },
+  "app/components/discount-wizard/steps/ConditionsStep.jsx": {
+    "mtime": 1793359469.515832,
+    "seen": 1793370374.0402148,
+    "ast_hash": "fc997d95da199c1e71224fdd3435d353",
+    "semantic_hash": ""
+  },
+  "app/components/discount-wizard/steps/ReviewStep.jsx": {
+    "mtime": 1793370069.7919502,
+    "seen": 1793370374.0402172,
+    "ast_hash": "fbe017ff10fa740a500475fc34913634",
+    "semantic_hash": ""
+  },
+  "app/components/discount-wizard/steps/ScheduleStep.jsx": {
+    "mtime": 1782979653.213106,
+    "seen": 1792406072.5313148,
+    "ast_hash": "245ee5a05f685b12b1a4c5b083d2dbb6",
+    "semantic_hash": "245ee5a05f685b12b1a4c5b083d2dbb6"
+  },
+  "app/components/discount-wizard/steps/ValueStep.jsx": {
+    "mtime": 1793691991.4471104,
+    "seen": 1793692037.6156282,
+    "ast_hash": "7c64eb9d006ec0b77a551fc4f72fa25a",
+    "semantic_hash": ""
+  },
+  "app/components/discount-wizard/useDiscountWizardState.js": {
+    "mtime": 1793369350.1097388,
+    "seen": 1793370374.0403507,
+    "ast_hash": "35227631fa1f3c5f34147950e53e78c2",
+    "semantic_hash": ""
+  },
+  "app/components/discounts/DeleteConfirmationModel.jsx": {
+    "mtime": 1783937839.2312775,
+    "seen": 1792406072.5313215,
+    "ast_hash": "9b54e0808cfc810f04eff641fe626193",
+    "semantic_hash": "9b54e0808cfc810f04eff641fe626193"
+  },
+  "app/components/index.js": {
+    "mtime": 1783937394.6356516,
+    "seen": 1792406072.531324,
+    "ast_hash": "e24348d3a3096c2bdd3b33f65f63de55",
+    "semantic_hash": "e24348d3a3096c2bdd3b33f65f63de55"
+  },
+  "app/components/route-error.jsx": {
+    "mtime": 1780928781.4728444,
+    "seen": 1792406072.531326,
+    "ast_hash": "9f6998c1dfcbb1bc96f4548e1c6d1d91",
+    "semantic_hash": "9f6998c1dfcbb1bc96f4548e1c6d1d91"
+  },
+  "app/configs/discount-templates.js": {
+    "mtime": 1793355703.9626906,
+    "seen": 1793370374.0407872,
+    "ast_hash": "fcba7925bcbd7bd608cedcaaf3a7b036",
+    "semantic_hash": ""
+  },
+  "app/db.server.js": {
+    "mtime": 1779882966.9476702,
+    "seen": 1792406072.5313313,
+    "ast_hash": "cef2151ea85bba5ebffdeb660915c923",
+    "semantic_hash": "cef2151ea85bba5ebffdeb660915c923"
+  },
+  "app/entry.server.jsx": {
+    "mtime": 1779882966.9486873,
+    "seen": 1792406072.5313334,
+    "ast_hash": "3dfc0b2c7bb0271fec18dbec63189bf2",
+    "semantic_hash": "3dfc0b2c7bb0271fec18dbec63189bf2"
+  },
+  "app/helpers/NativeDiscountsPayloadHelper.js": {
+    "mtime": 1793369247.4400382,
+    "seen": 1793370374.0411506,
+    "ast_hash": "3f2cae7f893d4e0d657c66af0d363382",
+    "semantic_hash": ""
+  },
+  "app/root.jsx": {
+    "mtime": 1779884717.6385353,
+    "seen": 1792406072.531338,
+    "ast_hash": "c3d362ece380b20156ab7704e71d69cc",
+    "semantic_hash": "c3d362ece380b20156ab7704e71d69cc"
+  },
+  "app/routes.js": {
+    "mtime": 1784656414.5867653,
+    "seen": 1792406072.5313401,
+    "ast_hash": "7e324ab883aa3466c3fd1f2dd28376d9",
+    "semantic_hash": "7e324ab883aa3466c3fd1f2dd28376d9"
+  },
+  "app/routes/_index/route.jsx": {
+    "mtime": 1784657087.18477,
+    "seen": 1792406072.5313423,
+    "ast_hash": "7d0b2decf32f3b760d64ac878473a0c7",
+    "semantic_hash": "7d0b2decf32f3b760d64ac878473a0c7"
+  },
+  "app/routes/api.discount-delete.jsx": {
+    "mtime": 1783938046.509227,
+    "seen": 1792406072.5313447,
+    "ast_hash": "92d9e788dd54fff9ba7050d32e6af41c",
+    "semantic_hash": "92d9e788dd54fff9ba7050d32e6af41c"
+  },
+  "app/routes/api.discount-toggle.jsx": {
+    "mtime": 1793353966.3812187,
+    "seen": 1793370374.0416493,
+    "ast_hash": "068582db0896fd312db222e62c0ce660",
+    "semantic_hash": ""
+  },
+  "app/routes/api.resource-search.jsx": {
+    "mtime": 1793691984.3694654,
+    "seen": 1793692037.6180835,
+    "ast_hash": "0f3567462e778bd24205a65fe7fabf35",
+    "semantic_hash": ""
+  },
+  "app/routes/app._index.jsx": {
+    "mtime": 1789294821.7009642,
+    "seen": 1792406072.5313509,
+    "ast_hash": "635f7c34ca8061524511272626df2f3b",
+    "semantic_hash": "635f7c34ca8061524511272626df2f3b"
+  },
+  "app/routes/app.admin.logs.jsx": {
+    "mtime": 1784704516.8863282,
+    "seen": 1792406072.531353,
+    "ast_hash": "1a62b30205e2137a2d9f8a4e7bf94ec6",
+    "semantic_hash": "1a62b30205e2137a2d9f8a4e7bf94ec6"
+  },
+  "app/routes/app.billing.jsx": {
+    "mtime": 1793634101.1390052,
+    "seen": 1793687353.273107,
+    "ast_hash": "9224b804ab104a3a119b458557e9fc78",
+    "semantic_hash": ""
+  },
+  "app/routes/app.discounts-edit.jsx": {
+    "mtime": 1793369232.6739182,
+    "seen": 1793370374.0420265,
+    "ast_hash": "bfa6877643dd3a8757de8a5ff6eec597",
+    "semantic_hash": ""
+  },
+  "app/routes/app.discounts-new.jsx": {
+    "mtime": 1793370079.1958833,
+    "seen": 1793370374.0420291,
+    "ast_hash": "181f3fb2ee4f28c003bb0f6b29ccfd54",
+    "semantic_hash": ""
+  },
+  "app/routes/app.discounts.jsx": {
+    "mtime": 1793355736.1118383,
+    "seen": 1793370374.042031,
+    "ast_hash": "66f38f461a66021fe3db1a331221a3bd",
+    "semantic_hash": ""
+  },
+  "app/routes/app.jsx": {
+    "mtime": 1784657129.9210956,
+    "seen": 1792406072.5313637,
+    "ast_hash": "39ab5f0f79cc00186837d0a2392b76a6",
+    "semantic_hash": "39ab5f0f79cc00186837d0a2392b76a6"
+  },
+  "app/routes/auth.$.jsx": {
+    "mtime": 1784656397.0589142,
+    "seen": 1792406072.531366,
+    "ast_hash": "fd0fe5ef616023ad03764e9854e6fcdd",
+    "semantic_hash": "fd0fe5ef616023ad03764e9854e6fcdd"
+  },
+  "app/routes/auth.login/error.server.jsx": {
+    "mtime": 1779882966.9566724,
+    "seen": 1792406072.5313683,
+    "ast_hash": "52befbef31a9d6b2d36112c250f374e6",
+    "semantic_hash": "52befbef31a9d6b2d36112c250f374e6"
+  },
+  "app/routes/auth.login/route.jsx": {
+    "mtime": 1784657278.8602674,
+    "seen": 1792406072.5313704,
+    "ast_hash": "8f298179eb45e326f7350d776dab77c4",
+    "semantic_hash": "8f298179eb45e326f7350d776dab77c4"
+  },
+  "app/routes/webhooks.jsx": {
+    "mtime": 1788434753.3833358,
+    "seen": 1792406072.5313725,
+    "ast_hash": "add2bf35d01673b8a738e855a131671d",
+    "semantic_hash": "add2bf35d01673b8a738e855a131671d"
+  },
+  "app/services/orders.server.js": {
+    "mtime": 1788765849.6780634,
+    "seen": 1792406072.5313761,
+    "ast_hash": "35bf94d1ebafb1249c7924eb502d721a",
+    "semantic_hash": "35bf94d1ebafb1249c7924eb502d721a"
+  },
+  "app/services/subscription.server.js": {
+    "mtime": 1783929675.3119738,
+    "seen": 1792406072.5313783,
+    "ast_hash": "874603616ee919b46d41c115a3c0229c",
+    "semantic_hash": "874603616ee919b46d41c115a3c0229c"
+  },
+  "app/shopify.server.js": {
+    "mtime": 1793772036.3063886,
+    "seen": 1793772054.8673258,
+    "ast_hash": "803a800ce7980a07137aea33c89b7806",
+    "semantic_hash": ""
+  },
+  "app/utils/access-cache.server.js": {
+    "mtime": 1780927712.2917087,
+    "seen": 1792406072.5313826,
+    "ast_hash": "035666969b3e9a35a328ad9cb4600ba4",
+    "semantic_hash": "035666969b3e9a35a328ad9cb4600ba4"
+  },
+  "app/utils/billing.server.js": {
+    "mtime": 1793633322.0609338,
+    "seen": 1793687353.275454,
+    "ast_hash": "f2e0acb241d91cfee57e0343d0a2a5a4",
+    "semantic_hash": ""
+  },
+  "app/utils/currency.js": {
+    "mtime": 1782893577.9957361,
+    "seen": 1792406072.5313869,
+    "ast_hash": "2e09d5db83b99ffdc572ebe0bf3e6ad2",
+    "semantic_hash": "2e09d5db83b99ffdc572ebe0bf3e6ad2"
+  },
+  "app/utils/discount-analytics.server.js": {
+    "mtime": 1784277266.9817884,
+    "seen": 1792406072.531389,
+    "ast_hash": "5dbc607083667703ebbd4d7bd75314ed",
+    "semantic_hash": "5dbc607083667703ebbd4d7bd75314ed"
+  },
+  "app/utils/discount-custom-sync.server.js": {
+    "mtime": 1788775736.0560856,
+    "seen": 1792406072.531391,
+    "ast_hash": "bb17ff5f66adb19ded8b84735d35e9f2",
+    "semantic_hash": "bb17ff5f66adb19ded8b84735d35e9f2"
+  },
+  "app/utils/discount-free-gift-sync.server.js": {
+    "mtime": 1790601621.9488642,
+    "seen": 1792406072.5313933,
+    "ast_hash": "7189800e24ae91b0292c286d34a89187",
+    "semantic_hash": "7189800e24ae91b0292c286d34a89187"
+  },
+  "app/utils/discount-identity.server.js": {
+    "mtime": 1789118617.1011379,
+    "seen": 1792406072.5313954,
+    "ast_hash": "1de3cf944649e6117dd86d817f0cf0ba",
+    "semantic_hash": "1de3cf944649e6117dd86d817f0cf0ba"
+  },
+  "app/utils/discount-sync-handler.server.js": {
+    "mtime": 1793361485.7546873,
+    "seen": 1793370374.044344,
+    "ast_hash": "3be48e905ff44101b44455f234616adb",
+    "semantic_hash": ""
+  },
+  "app/utils/discount-sync.server.js": {
+    "mtime": 1788255811.1598525,
+    "seen": 1792406072.5313997,
+    "ast_hash": "5cb8e022b9f89d929c79c78999cc3140",
+    "semantic_hash": "5cb8e022b9f89d929c79c78999cc3140"
+  },
+  "app/utils/discount-sync.types.js": {
+    "mtime": 1787646636.5061846,
+    "seen": 1792406072.5314019,
+    "ast_hash": "67ef6d131af5ba34435691fdf7e230a2",
+    "semantic_hash": "67ef6d131af5ba34435691fdf7e230a2"
+  },
+  "app/utils/discount-usage.server.js": {
+    "mtime": 1793356740.410551,
+    "seen": 1793370374.0446837,
+    "ast_hash": "e650199521f6caa4961462257a3a6870",
+    "semantic_hash": ""
+  },
+  "app/utils/discount-validation.server.js": {
+    "mtime": 1793359377.7057047,
+    "seen": 1793370374.0446868,
+    "ast_hash": "8c8964c694d02d2b401c9469dda9df6e",
+    "semantic_hash": ""
+  },
+  "app/utils/hydrateSelectedResource.server.js": {
+    "mtime": 1793692569.1160789,
+    "seen": 1793692612.3230786,
+    "ast_hash": "218d12152046917205356d1cedc5b28a",
+    "semantic_hash": ""
+  },
+  "app/utils/logger.server.js": {
+    "mtime": 1784199165.0407674,
+    "seen": 1792406072.5314107,
+    "ast_hash": "8a8947eb84f7cdc3140002e306647860",
+    "semantic_hash": "8a8947eb84f7cdc3140002e306647860"
+  },
+  "app/utils/plan-gate.server.js": {
+    "mtime": 1793633445.5599546,
+    "seen": 1793687353.276837,
+    "ast_hash": "89d19964042d7da39df14661da9d4b08",
+    "semantic_hash": ""
+  },
+  "app/utils/plans.js": {
+    "mtime": 1788762464.263559,
+    "seen": 1792406072.5314152,
+    "ast_hash": "bf0c6989b6d4daed7695cb43a7e54047",
+    "semantic_hash": "bf0c6989b6d4daed7695cb43a7e54047"
+  },
+  "app/utils/resource-hydration.server.js": {
+    "mtime": 1782898386.467054,
+    "seen": 1792406072.5314174,
+    "ast_hash": "6751c74e0e8c76b83e614ce01e513e1c",
+    "semantic_hash": "6751c74e0e8c76b83e614ce01e513e1c"
+  },
+  "app/utils/shop.server.js": {
+    "mtime": 1793633975.1281457,
+    "seen": 1793687353.2770803,
+    "ast_hash": "eab0542d76f1f1a29f9d2feb398cd2d2",
+    "semantic_hash": ""
+  },
+  "extensions/capped-order-discount/locales/en.default.json": {
+    "mtime": 1793688671.7055626,
+    "seen": 1793690691.1501703,
+    "ast_hash": "09fa588f3676e031228fac88fdb1f016",
+    "semantic_hash": ""
+  },
+  "extensions/capped-order-discount/package.json": {
+    "mtime": 1788249892.4971871,
+    "seen": 1792406072.531424,
+    "ast_hash": "1f3a4ac27020bc123282737e2af6033b",
+    "semantic_hash": "1f3a4ac27020bc123282737e2af6033b"
+  },
+  "extensions/capped-order-discount/src/cart_lines_discounts_generate_run.js": {
+    "mtime": 1788853441.5630212,
+    "seen": 1792406072.5314262,
+    "ast_hash": "cdfdcedc4d70af536a706c1f5c4f7f71",
+    "semantic_hash": "cdfdcedc4d70af536a706c1f5c4f7f71"
+  },
+  "extensions/capped-order-discount/src/index.js": {
+    "mtime": 1788254901.0493383,
+    "seen": 1792406072.5314283,
+    "ast_hash": "9887f26802e348d529eb0b1dc84a7ab6",
+    "semantic_hash": "9887f26802e348d529eb0b1dc84a7ab6"
+  },
+  "extensions/capped-order-discount/tests/default.test.js": {
+    "mtime": 1793362590.943558,
+    "seen": 1793370374.0462034,
+    "ast_hash": "7dc6bcde816af46a4269ab1c65e4813f",
+    "semantic_hash": ""
+  },
+  "extensions/capped-order-discount/vite.config.js": {
+    "mtime": 1788249890.328206,
+    "seen": 1792406072.5314326,
+    "ast_hash": "c536709a5d28b572d8cc8886b5f6f8db",
+    "semantic_hash": "c536709a5d28b572d8cc8886b5f6f8db"
+  },
+  "extensions/capped-order-discount/vitest.config.js": {
+    "mtime": 1788249890.328206,
+    "seen": 1792406072.5314348,
+    "ast_hash": "92d5f46f07e56037692cf2fd99684f32",
+    "semantic_hash": "92d5f46f07e56037692cf2fd99684f32"
+  },
+  "extensions/free-gift-discount/locales/en.default.json": {
+    "mtime": 1793688659.3188255,
+    "seen": 1793690691.1513667,
+    "ast_hash": "8bd0090936e97e044350d0431cb46876",
+    "semantic_hash": ""
+  },
+  "extensions/free-gift-discount/package.json": {
+    "mtime": 1793381765.0717082,
+    "seen": 1793382878.5972285,
+    "ast_hash": "01445ccb847a4dc25b5aa879005ba4f1",
+    "semantic_hash": ""
+  },
+  "extensions/free-gift-discount/src/cart_lines_discounts_generate_run.js": {
+    "mtime": 1793368412.9879055,
+    "seen": 1793370374.046716,
+    "ast_hash": "ed14689128daf16b840170c2c46596d0",
+    "semantic_hash": ""
+  },
+  "extensions/free-gift-discount/src/index.js": {
+    "mtime": 1790600109.2746327,
+    "seen": 1792406072.5314434,
+    "ast_hash": "e85789bed612183c8e85bf0dec10af15",
+    "semantic_hash": "e85789bed612183c8e85bf0dec10af15"
+  },
+  "extensions/free-gift-discount/tests/default.test.js": {
+    "mtime": 1793368459.5405629,
+    "seen": 1793370374.0468485,
+    "ast_hash": "89401817592e9f5a88112b8c5d75b52d",
+    "semantic_hash": ""
+  },
+  "extensions/free-gift-discount/vite.config.js": {
+    "mtime": 1790599066.9143255,
+    "seen": 1792406072.531448,
+    "ast_hash": "c536709a5d28b572d8cc8886b5f6f8db",
+    "semantic_hash": "c536709a5d28b572d8cc8886b5f6f8db"
+  },
+  "extensions/free-gift-discount/vitest.config.js": {
+    "mtime": 1790599066.9153266,
+    "seen": 1792406072.53145,
+    "ast_hash": "92d5f46f07e56037692cf2fd99684f32",
+    "semantic_hash": "92d5f46f07e56037692cf2fd99684f32"
+  },
+  "package.json": {
+    "mtime": 1793353480.9456666,
+    "seen": 1793370374.047129,
+    "ast_hash": "dcf4c4fee61fb1935eeccbc62b216193",
+    "semantic_hash": ""
+  },
+  "postcss.config.js": {
+    "mtime": 1779884445.9861968,
+    "seen": 1792406072.5314543,
+    "ast_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0",
+    "semantic_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0"
+  },
+  "prisma/migrations/20260527131734_init/migration.sql": {
+    "mtime": 1779887854.1694837,
+    "seen": 1793687390.0087726,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260601102018_init_smart_discount/migration.sql": {
+    "mtime": 1780309218.0666163,
+    "seen": 1793687390.0087767,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260706074421_add_bxgy_amount_off_each/migration.sql": {
+    "mtime": 1783323861.900412,
+    "seen": 1793687390.0087788,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260715071438_added_discount_analytics/migration.sql": {
+    "mtime": 1784099678.6289124,
+    "seen": 1793687390.0087812,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260831121040_removed_discounttemplate_module/migration.sql": {
+    "mtime": 1788178240.4177628,
+    "seen": 1793687390.0087843,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260901075836_add_capped_amount_to_discount/migration.sql": {
+    "mtime": 1788249516.4029183,
+    "seen": 1793687390.008787,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "tailwind.config.js": {
+    "mtime": 1779884553.9474592,
+    "seen": 1792406072.5314717,
+    "ast_hash": "164759205099d0b33f0da220ddd770b5",
+    "semantic_hash": "164759205099d0b33f0da220ddd770b5"
+  },
+  "tsconfig.json": {
+    "mtime": 1779882966.967688,
+    "seen": 1792406072.531474,
+    "ast_hash": "dcda9500f0ddb139caeb109dcc0d3db3",
+    "semantic_hash": "dcda9500f0ddb139caeb109dcc0d3db3"
+  },
+  "vite.config.js": {
+    "mtime": 1787551414.6833394,
+    "seen": 1792406072.5314763,
+    "ast_hash": "b91324e7c6854fe1d4aa7b56a3a542e7",
+    "semantic_hash": "b91324e7c6854fe1d4aa7b56a3a542e7"
+  },
+  ".github/workflows/deploy.yml": {
+    "mtime": 1793381847.566211,
+    "seen": 1793382878.5996668,
+    "ast_hash": "ec46724f7d51a6dd064dc41bd4d90d00",
+    "semantic_hash": ""
+  },
+  "CHANGELOG.md": {
+    "mtime": 1779882966.9416807,
+    "seen": 1792406072.5314806,
+    "ast_hash": "957150dfe08d7b68052c6269f853498e",
+    "semantic_hash": "957150dfe08d7b68052c6269f853498e"
+  },
+  "CLAUDE.md": {
+    "mtime": 1793772042.3539221,
+    "seen": 1793772054.8755548,
+    "ast_hash": "c2a9daec6af371999d2773130d041a94",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1779882966.9446723,
+    "seen": 1792406072.5314848,
+    "ast_hash": "c8b704598ba8b3668a881a50603ca03b",
+    "semantic_hash": "c8b704598ba8b3668a881a50603ca03b"
+  },
+  "env.example.txt": {
+    "mtime": 1793361802.871147,
+    "seen": 1793370374.0480225,
+    "ast_hash": "62641f412c3221399d5390556144de26",
+    "semantic_hash": ""
+  },
+  "extensions/capped-order-discount/src/cart_delivery_options_discounts_generate_run.js.txt": {
+    "mtime": 1788254946.3818412,
+    "seen": 1792406072.5314894,
+    "ast_hash": "599bfe268a28babe96324d8b10436086",
+    "semantic_hash": "599bfe268a28babe96324d8b10436086"
+  },
+  "extensions/free-gift-discount/src/cart_delivery_options_discounts_generate_run.js.txt": {
+    "mtime": 1790599068.31601,
+    "seen": 1792406072.5314913,
+    "ast_hash": "f3e75a66c32cbd8f89ce143c350f8fff",
+    "semantic_hash": "f3e75a66c32cbd8f89ce143c350f8fff"
+  },
+  "create_chunk3.py": {
+    "mtime": 1792405886.9421237,
+    "seen": 1792411729.2196712,
+    "ast_hash": "b770f94378d7bc251eda0bd12a6eae3a",
+    "semantic_hash": ""
+  },
+  "create_chunks.py": {
+    "mtime": 1792405777.9743724,
+    "seen": 1792411729.219674,
+    "ast_hash": "af8d95a4c834e995733b5af875256f4a",
+    "semantic_hash": ""
+  },
+  "app/components/discount-wizard/freeGiftFormSerializer.js": {
+    "mtime": 1793368648.3804946,
+    "seen": 1793370374.040078,
+    "ast_hash": "97015ea32a8ae4321e3fd3f93e4ed4e8",
+    "semantic_hash": ""
+  },
+  "app/test/NativeDiscountsPayloadHelper.test.js": {
+    "mtime": 1793359211.3803382,
+    "seen": 1793370374.043166,
+    "ast_hash": "a470c5068084ddb41133d41be6219bb7",
+    "semantic_hash": ""
+  },
+  "app/test/api.discount-toggle.test.js": {
+    "mtime": 1793354472.6925397,
+    "seen": 1793370374.04317,
+    "ast_hash": "8a1ff0c5466a33cae2a0601bd4389d26",
+    "semantic_hash": ""
+  },
+  "app/test/app.billing.action.test.js": {
+    "mtime": 1793356288.2509315,
+    "seen": 1793370374.0431726,
+    "ast_hash": "e0c6982553314b996a04e4bcee844be6",
+    "semantic_hash": ""
+  },
+  "app/test/discount-templates.test.js": {
+    "mtime": 1793355486.1410859,
+    "seen": 1793370374.0431752,
+    "ast_hash": "48a7e9f98575f24212a2e95103d05d5d",
+    "semantic_hash": ""
+  },
+  "app/test/discount-usage.server.test.js": {
+    "mtime": 1793358322.4815023,
+    "seen": 1793370374.0431774,
+    "ast_hash": "c4886c9e24d6ac6e8c175c7f829887a2",
+    "semantic_hash": ""
+  },
+  "app/test/discount-validation.server.test.js": {
+    "mtime": 1793360172.0172174,
+    "seen": 1793370374.0431802,
+    "ast_hash": "95ba38c3fa8ab5dc9811a698671b6d81",
+    "semantic_hash": ""
+  },
+  "app/test/freeGiftFormSerializer.test.js": {
+    "mtime": 1793368822.7711287,
+    "seen": 1793370374.0431828,
+    "ast_hash": "ce7d87423e48354b8655362f3d725133",
+    "semantic_hash": ""
+  },
+  "app/test/plan-gate.server.test.js": {
+    "mtime": 1793687230.2753508,
+    "seen": 1793687353.2752137,
+    "ast_hash": "f8f2971468594a97a42a7146dc22036b",
+    "semantic_hash": ""
+  },
+  "app/test/useDiscountWizardState.test.js": {
+    "mtime": 1793358972.071932,
+    "seen": 1793370374.0431888,
+    "ast_hash": "b58e5e9dd7a20e190ae1f90d23b4f768",
+    "semantic_hash": ""
+  },
+  "vitest.config.js": {
+    "mtime": 1793359023.379977,
+    "seen": 1793370374.0476322,
+    "ast_hash": "fd504c5793ef18f2da51f8916a70b2ab",
+    "semantic_hash": ""
+  },
+  "app/test/access-cache.server.test.js": {
+    "mtime": 1793634552.7236097,
+    "seen": 1793687353.2745008,
+    "ast_hash": "8656e708a55482a46ec4dec95a747614",
+    "semantic_hash": ""
+  },
+  "app/test/shop.server.test.js": {
+    "mtime": 1793634981.1497004,
+    "seen": 1793687353.275216,
+    "ast_hash": "5d61efebcab222fca94471977833151a",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20261030153749_free_gift_support_added/migration.sql": {
+    "mtime": 1793374669.185004,
+    "seen": 1793687390.0087895,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "app/test/react-router-config.test.js": {
+    "mtime": 1793690677.3072486,
+    "seen": 1793690691.1455812,
+    "ast_hash": "00cc1438156cf11cf71cd9be4890413b",
+    "semantic_hash": ""
+  },
+  "react-router.config.js": {
+    "mtime": 1793690678.0377667,
+    "seen": 1793690691.152928,
+    "ast_hash": "a0cd665f936ba7b5e9a0c019ca6b0ae7",
+    "semantic_hash": ""
+  },
+  "app/test/hydrateSelectedResource.server.test.js": {
+    "mtime": 1793692531.3223097,
+    "seen": 1793692612.3208413,
+    "ast_hash": "d2598b3b55e7f6b04d3cec9d40fec595",
+    "semantic_hash": ""
+  },
+  "app/test/api-version-consistency.test.js": {
+    "mtime": 1793772630.6219566,
+    "seen": 1793772670.5253158,
+    "ast_hash": "dc9e77edfb9bd04f25072906362c22b8",
+    "semantic_hash": ""
+  }
+}

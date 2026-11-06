@@ -1,7 +1,11 @@
 {
   "name": "smart-discount",
+  "author": "Vaibhav",
   "private": true,
+  "type": "module",
   "scripts": {
+    "docker-start": "prisma migrate deploy && npm run start",
+    "start": "react-router-serve ./build/server/index.js",
     "build": "react-router build",
     "dev": "dotenv -e .env.dev -- shopify app dev --config shopify.app.dev.toml",
     "prod": "dotenv -e .env.prod -- shopify app dev --config shopify.app.prod.toml",
@@ -9,27 +13,23 @@
     "build-extension:prod": "shopify app build --config shopify.app.prod.toml",
     "deploy:dev": "shopify app deploy --config shopify.app.dev.toml",
     "deploy:prod": "shopify app deploy --config shopify.app.prod.toml",
-    "start": "react-router-serve ./build/server/index.js",
-    "docker-start": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run start",
-    "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
 
+    "prisma:generate": "dotenv -e .env.dev -- prisma generate",
     "prisma:migrate:new": "dotenv -e .env.dev -- prisma migrate dev --create-only --name",
-    "prisma:migrate:apply": "dotenv -e .env.dev -- prisma migrate deploy",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:migrate:prod": "dotenv -e .env.prod -- prisma migrate deploy && dotenv -e .env.prod -- prisma generate",
-    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "dotenv -e .env.dev -- prisma migrate deploy",
+    "prisma:migrate:prod": "dotenv -e .env.prod -- prisma generate && dotenv -e .env.prod -- prisma migrate deploy",
+
     "prisma:migrate:status": "dotenv -e .env.dev -- prisma migrate status",
     "prisma:validate": "node --env-file=env.example.txt node_modules/prisma/build/index.js validate",
     "prisma:format": "node --env-file=env.example.txt node_modules/prisma/build/index.js format",
 
     "db:dev": "dotenv -e .env.dev -- npx prisma studio",
     "db:prod": "dotenv -e .env.prod -- npx prisma studio",
+
     "graphql-codegen": "graphql-codegen",
-    "typecheck": "react-router typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "type": "module",
   "engines": {
     "node": ">=20.19 <22 || >=22.12"
   },
@@ -83,7 +83,6 @@
   "overrides": {
     "p-map": "^4.0.0"
   },
-  "author": "Vaibhav",
   "allowScripts": {
     "@parcel/watcher@2.5.6": true,
     "@prisma/client@6.19.3": true,

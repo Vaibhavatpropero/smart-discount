@@ -6,10 +6,10 @@
     "semantic_hash": "e92b71efa9c3ca442b18b39a4ab9cfe9"
   },
   ".graphqlrc.js": {
-    "mtime": 1779882966.9396746,
-    "seen": 1792406072.5312777,
-    "ast_hash": "d9733ffb48242e7ba6123ac93892ccdf",
-    "semantic_hash": "d9733ffb48242e7ba6123ac93892ccdf"
+    "mtime": 1793772036.9919798,
+    "seen": 1793772054.8608832,
+    "ast_hash": "b57d3f26779874088eba1834bc335483",
+    "semantic_hash": ""
   },
   ".mcp.json": {
     "mtime": 1790595018.77181,
@@ -102,9 +102,9 @@
     "semantic_hash": "245ee5a05f685b12b1a4c5b083d2dbb6"
   },
   "app/components/discount-wizard/steps/ValueStep.jsx": {
-    "mtime": 1793369418.6369088,
-    "seen": 1793370374.0403478,
-    "ast_hash": "e8d031775f255433b7fc102def667e99",
+    "mtime": 1793691991.4471104,
+    "seen": 1793692037.6156282,
+    "ast_hash": "7c64eb9d006ec0b77a551fc4f72fa25a",
     "semantic_hash": ""
   },
   "app/components/discount-wizard/useDiscountWizardState.js": {
@@ -186,10 +186,10 @@
     "semantic_hash": ""
   },
   "app/routes/api.resource-search.jsx": {
-    "mtime": 1787564761.0256007,
-    "seen": 1792406072.5313487,
-    "ast_hash": "e40ed4f2325942fdf962ebdba2e6d47c",
-    "semantic_hash": "e40ed4f2325942fdf962ebdba2e6d47c"
+    "mtime": 1793691984.3694654,
+    "seen": 1793692037.6180835,
+    "ast_hash": "0f3567462e778bd24205a65fe7fabf35",
+    "semantic_hash": ""
   },
   "app/routes/app._index.jsx": {
     "mtime": 1789294821.7009642,
@@ -204,9 +204,9 @@
     "semantic_hash": "1a62b30205e2137a2d9f8a4e7bf94ec6"
   },
   "app/routes/app.billing.jsx": {
-    "mtime": 1793373742.7285411,
-    "seen": 1793374365.3277674,
-    "ast_hash": "06f20d79e021961548b54c3d87471c94",
+    "mtime": 1793634101.1390052,
+    "seen": 1793687353.273107,
+    "ast_hash": "9224b804ab104a3a119b458557e9fc78",
     "semantic_hash": ""
   },
   "app/routes/app.discounts-edit.jsx": {
@@ -270,10 +270,10 @@
     "semantic_hash": "874603616ee919b46d41c115a3c0229c"
   },
   "app/shopify.server.js": {
-    "mtime": 1784645360.9644115,
-    "seen": 1792406072.5313802,
-    "ast_hash": "ef7356a97c8c62620f022f94dec868f4",
-    "semantic_hash": "ef7356a97c8c62620f022f94dec868f4"
+    "mtime": 1793772036.3063886,
+    "seen": 1793772054.8673258,
+    "ast_hash": "803a800ce7980a07137aea33c89b7806",
+    "semantic_hash": ""
   },
   "app/utils/access-cache.server.js": {
     "mtime": 1780927712.2917087,
@@ -282,10 +282,10 @@
     "semantic_hash": "035666969b3e9a35a328ad9cb4600ba4"
   },
   "app/utils/billing.server.js": {
-    "mtime": 1783928863.559356,
-    "seen": 1792406072.5313845,
-    "ast_hash": "8fb432f1dc0ccbd4a5b7c814ef3e3a4a",
-    "semantic_hash": "8fb432f1dc0ccbd4a5b7c814ef3e3a4a"
+    "mtime": 1793633322.0609338,
+    "seen": 1793687353.275454,
+    "ast_hash": "f2e0acb241d91cfee57e0343d0a2a5a4",
+    "semantic_hash": ""
   },
   "app/utils/currency.js": {
     "mtime": 1782893577.9957361,
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "app/utils/hydrateSelectedResource.server.js": {
-    "mtime": 1793369143.8844652,
-    "seen": 1793370374.0446894,
-    "ast_hash": "199b0aaa2df0940769055fa1d6814988",
+    "mtime": 1793692569.1160789,
+    "seen": 1793692612.3230786,
+    "ast_hash": "218d12152046917205356d1cedc5b28a",
     "semantic_hash": ""
   },
   "app/utils/logger.server.js": {
@@ -360,9 +360,9 @@
     "semantic_hash": "8a8947eb84f7cdc3140002e306647860"
   },
   "app/utils/plan-gate.server.js": {
-    "mtime": 1793356062.8878045,
-    "seen": 1793370374.0448377,
-    "ast_hash": "1a0aff9ecc21b457f62bbac795b0de76",
+    "mtime": 1793633445.5599546,
+    "seen": 1793687353.276837,
+    "ast_hash": "89d19964042d7da39df14661da9d4b08",
     "semantic_hash": ""
   },
   "app/utils/plans.js": {
@@ -378,16 +378,16 @@
     "semantic_hash": "6751c74e0e8c76b83e614ce01e513e1c"
   },
   "app/utils/shop.server.js": {
-    "mtime": 1780399163.4672296,
-    "seen": 1792406072.5314193,
-    "ast_hash": "357a217431ed614fc499cc47a48541f0",
-    "semantic_hash": "357a217431ed614fc499cc47a48541f0"
+    "mtime": 1793633975.1281457,
+    "seen": 1793687353.2770803,
+    "ast_hash": "eab0542d76f1f1a29f9d2feb398cd2d2",
+    "semantic_hash": ""
   },
   "extensions/capped-order-discount/locales/en.default.json": {
-    "mtime": 1788249892.4961672,
-    "seen": 1792406072.5314217,
-    "ast_hash": "b1e016307dee6e3b5cbf544a16179cd4",
-    "semantic_hash": "b1e016307dee6e3b5cbf544a16179cd4"
+    "mtime": 1793688671.7055626,
+    "seen": 1793690691.1501703,
+    "ast_hash": "09fa588f3676e031228fac88fdb1f016",
+    "semantic_hash": ""
   },
   "extensions/capped-order-discount/package.json": {
     "mtime": 1788249892.4971871,
@@ -426,9 +426,9 @@
     "semantic_hash": "92d5f46f07e56037692cf2fd99684f32"
   },
   "extensions/free-gift-discount/locales/en.default.json": {
-    "mtime": 1793381793.6852806,
-    "seen": 1793382878.5972245,
-    "ast_hash": "7b82e8f8ffb3092b5c389767dd691625",
+    "mtime": 1793688659.3188255,
+    "seen": 1793690691.1513667,
+    "ast_hash": "8bd0090936e97e044350d0431cb46876",
     "semantic_hash": ""
   },
   "extensions/free-gift-discount/package.json": {
@@ -468,9 +468,9 @@
     "semantic_hash": "92d5f46f07e56037692cf2fd99684f32"
   },
   "package.json": {
-    "mtime": 1793353480.9456666,
-    "seen": 1793370374.047129,
-    "ast_hash": "dcf4c4fee61fb1935eeccbc62b216193",
+    "mtime": 1793951141.9439964,
+    "seen": 1793954248.4317412,
+    "ast_hash": "79df53c5c187252fb379c2918dfeab3d",
     "semantic_hash": ""
   },
   "postcss.config.js": {
@@ -481,38 +481,38 @@
   },
   "prisma/migrations/20260527131734_init/migration.sql": {
     "mtime": 1779887854.1694837,
-    "seen": 1793374405.7602737,
-    "ast_hash": "03ceea43321fca1436c2275a924a6727",
+    "seen": 1793687390.0087726,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "prisma/migrations/20260601102018_init_smart_discount/migration.sql": {
     "mtime": 1780309218.0666163,
-    "seen": 1793374405.7602777,
-    "ast_hash": "c95ad4a69a34add57933525e36b8f76f",
+    "seen": 1793687390.0087767,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706074421_add_bxgy_amount_off_each/migration.sql": {
     "mtime": 1783323861.900412,
-    "seen": 1793374405.7602806,
-    "ast_hash": "bc80aaaf5b919c58db43b35148383977",
+    "seen": 1793687390.0087788,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "prisma/migrations/20260715071438_added_discount_analytics/migration.sql": {
     "mtime": 1784099678.6289124,
-    "seen": 1793374405.7602835,
-    "ast_hash": "c4d81e488f4231a33a246909f2b938c2",
+    "seen": 1793687390.0087812,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "prisma/migrations/20260831121040_removed_discounttemplate_module/migration.sql": {
     "mtime": 1788178240.4177628,
-    "seen": 1793374405.7602868,
-    "ast_hash": "849ddac9426d11ec2db20b7bf1bc83aa",
+    "seen": 1793687390.0087843,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "prisma/migrations/20260901075836_add_capped_amount_to_discount/migration.sql": {
     "mtime": 1788249516.4029183,
-    "seen": 1793374405.7602894,
-    "ast_hash": "2dbe6df8df3b2a4bda5bc6d4c9407929",
+    "seen": 1793687390.008787,
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "tailwind.config.js": {
@@ -534,9 +534,9 @@
     "semantic_hash": "b91324e7c6854fe1d4aa7b56a3a542e7"
   },
   ".github/workflows/deploy.yml": {
-    "mtime": 1793381847.566211,
-    "seen": 1793382878.5996668,
-    "ast_hash": "ec46724f7d51a6dd064dc41bd4d90d00",
+    "mtime": 1793954231.6592872,
+    "seen": 1793954248.4324265,
+    "ast_hash": "78e148b70df048fae40f0714a61aeb3c",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
@@ -546,9 +546,9 @@
     "semantic_hash": "957150dfe08d7b68052c6269f853498e"
   },
   "CLAUDE.md": {
-    "mtime": 1793375973.9575212,
-    "seen": 1793382878.5998032,
-    "ast_hash": "6c8ac6619834368ef9d84a90f9c28fbb",
+    "mtime": 1793774988.273398,
+    "seen": 1793954248.4325423,
+    "ast_hash": "9de08142a88649e81b999c69877e4beb",
     "semantic_hash": ""
   },
   "README.md": {
@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "app/test/plan-gate.server.test.js": {
-    "mtime": 1793355989.693749,
-    "seen": 1793370374.0431855,
-    "ast_hash": "baea4694eac106c7575e73ae8fc66ecf",
+    "mtime": 1793687230.2753508,
+    "seen": 1793687353.2752137,
+    "ast_hash": "f8f2971468594a97a42a7146dc22036b",
     "semantic_hash": ""
   },
   "app/test/useDiscountWizardState.test.js": {
@@ -651,6 +651,60 @@
     "mtime": 1793359023.379977,
     "seen": 1793370374.0476322,
     "ast_hash": "fd504c5793ef18f2da51f8916a70b2ab",
+    "semantic_hash": ""
+  },
+  "app/test/access-cache.server.test.js": {
+    "mtime": 1793634552.7236097,
+    "seen": 1793687353.2745008,
+    "ast_hash": "8656e708a55482a46ec4dec95a747614",
+    "semantic_hash": ""
+  },
+  "app/test/shop.server.test.js": {
+    "mtime": 1793634981.1497004,
+    "seen": 1793687353.275216,
+    "ast_hash": "5d61efebcab222fca94471977833151a",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20261030153749_free_gift_support_added/migration.sql": {
+    "mtime": 1793374669.185004,
+    "seen": 1793687390.0087895,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "app/test/react-router-config.test.js": {
+    "mtime": 1793690677.3072486,
+    "seen": 1793690691.1455812,
+    "ast_hash": "00cc1438156cf11cf71cd9be4890413b",
+    "semantic_hash": ""
+  },
+  "react-router.config.js": {
+    "mtime": 1793690678.0377667,
+    "seen": 1793690691.152928,
+    "ast_hash": "a0cd665f936ba7b5e9a0c019ca6b0ae7",
+    "semantic_hash": ""
+  },
+  "app/test/hydrateSelectedResource.server.test.js": {
+    "mtime": 1793692531.3223097,
+    "seen": 1793692612.3208413,
+    "ast_hash": "d2598b3b55e7f6b04d3cec9d40fec595",
+    "semantic_hash": ""
+  },
+  "app/test/api-version-consistency.test.js": {
+    "mtime": 1793772630.6219566,
+    "seen": 1793772670.5253158,
+    "ast_hash": "dc9e77edfb9bd04f25072906362c22b8",
+    "semantic_hash": ""
+  },
+  "app/routes/api.health.jsx": {
+    "mtime": 1793954074.739758,
+    "seen": 1793954248.4227045,
+    "ast_hash": "1de1efe35c1e0f2ba87b09572ef5ba43",
+    "semantic_hash": ""
+  },
+  "app/test/api-health.test.js": {
+    "mtime": 1793954189.1633637,
+    "seen": 1793954248.4255447,
+    "ast_hash": "856d133ce48913edfcfb71b8aef9bd38",
     "semantic_hash": ""
   }
 }
